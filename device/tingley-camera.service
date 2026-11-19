@@ -1,0 +1,18 @@
+[Unit]
+Description=Tingley Beach Sentinel Edge Camera Daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/opt/tingley
+Environment=PYTHONUNBUFFERED=1
+Environment=DASHBOARD_API_URL=https://tingly-beach-camera.vercel.app/api/alerts
+Environment=DEVICE_API_KEY=tingley-edge-secret-key-2026
+ExecStart=/usr/bin/python3 /opt/tingley/service.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

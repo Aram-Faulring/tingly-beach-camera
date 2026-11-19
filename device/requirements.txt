@@ -1,0 +1,7 @@
+# Raspberry Pi 4 Dependencies for Tingley Beach Camera Sentinel
+RPi.GPIO>=0.7.1
+requests>=2.31.0
+numpy>=1.24.0
+onnxruntime>=1.16.0
+opencv-python-headless>=4.8.0
+picamera2>=0.3.0
