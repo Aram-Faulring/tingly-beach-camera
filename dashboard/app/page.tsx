@@ -29,43 +29,35 @@ export default function DashboardPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Online Simulated Mode State & Auto Presentation Loop
-  const [isSimulatedMode, setIsSimulatedMode] = useState<boolean>(false);
+  // Online Simulated Mode State (defaults to true so it works immediately without setup)
+  const [isSimulatedMode, setIsSimulatedMode] = useState<boolean>(true);
   const [isAutoSimulate, setIsAutoSimulate] = useState<boolean>(false);
   const [autoCountdown, setAutoCountdown] = useState<number>(20);
   const autoScenarioIndex = useRef(0);
+  const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4000);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToastMessage(null), 3500);
   }, []);
 
-  // Check initial Simulated Mode preference from localStorage
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('tingley_simulated_mode');
-      if (saved === 'true') {
-        setIsSimulatedMode(true);
-      }
-    } catch {
-      // localStorage unavailable
-    }
-  }, []);
-
-  // Fetch incidents from API
+  // Stable incident fetcher from API
   const fetchIncidents = useCallback(async () => {
     try {
       const res = await fetch('/api/alerts');
       if (res.ok) {
         const data = await res.json();
-        setIncidents(data.incidents || []);
+        if (Array.isArray(data.incidents)) {
+          setIncidents(data.incidents);
+        }
       }
     } catch (err) {
       console.error('Failed to load incidents', err);
     }
   }, []);
 
-  // Fetch device telemetry from API
+  // Stable telemetry fetcher from API (used in live mode)
   const fetchTelemetry = useCallback(async () => {
     try {
       const res = await fetch('/api/telemetry');
@@ -77,29 +69,60 @@ export default function DashboardPage() {
       }
     } catch (err) {
       console.error('Failed to load telemetry', err);
-      // If telemetry fails and in simulated mode, provide simulated baseline
-      if (isSimulatedMode && !telemetry) {
-        setTelemetry(createSimulatedTelemetry());
-      }
     }
-  }, [isSimulatedMode, telemetry]);
+  }, []);
 
-  const refreshAll = useCallback(async () => {
+  // Manual refresh button handler (sets spinner only for explicit user actions)
+  const handleManualRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    await Promise.all([fetchIncidents(), fetchTelemetry()]);
-    setIsRefreshing(false);
+    try {
+      if (isSimulatedMode) {
+        const res = await fetch('/api/alerts');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.incidents)) setIncidents(data.incidents);
+        }
+      } else {
+        await Promise.all([fetchIncidents(), fetchTelemetry()]);
+      }
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [isSimulatedMode, fetchIncidents, fetchTelemetry]);
+
+  // Initial load on mount
+  useEffect(() => {
+    let isSim = true;
+    try {
+      const saved = localStorage.getItem('tingley_simulated_mode');
+      if (saved !== null) {
+        isSim = saved === 'true';
+      }
+    } catch {
+      // Ignore
+    }
+    setIsSimulatedMode(isSim);
+
+    if (isSim) {
+      setTelemetry((curr) => curr || createSimulatedTelemetry());
+    } else {
+      fetchTelemetry();
+    }
+
+    fetchIncidents();
   }, [fetchIncidents, fetchTelemetry]);
 
-  // Periodic refresh when NOT auto-simulating
+  // Periodic background refresh for Live Pi mode ONLY (NEVER interferes with simulated mode)
   useEffect(() => {
-    refreshAll();
+    if (isSimulatedMode || isAutoSimulate) return;
+
     const timer = setInterval(() => {
-      if (!isAutoSimulate) {
-        refreshAll();
-      }
-    }, 8000);
+      fetchIncidents();
+      fetchTelemetry();
+    }, 10000);
+
     return () => clearInterval(timer);
-  }, [refreshAll, isAutoSimulate]);
+  }, [isSimulatedMode, isAutoSimulate, fetchIncidents, fetchTelemetry]);
 
   // Toggle Simulated Mode
   const toggleSimulatedMode = useCallback(() => {
@@ -111,18 +134,17 @@ export default function DashboardPage() {
         // Ignore
       }
       if (next) {
-        if (!telemetry) {
-          setTelemetry(createSimulatedTelemetry());
-        }
+        setTelemetry((curr) => curr || createSimulatedTelemetry());
         showToast('⚡ Simulated Mode Activated — Online Sentinel Sandbox Ready');
       } else {
         setIsAutoSimulate(false);
         showToast('Switched to Live Edge Camera feed');
-        refreshAll();
+        fetchIncidents();
+        fetchTelemetry();
       }
       return next;
     });
-  }, [telemetry, showToast, refreshAll]);
+  }, [showToast, fetchIncidents, fetchTelemetry]);
 
   // 1. Instant optimistic incident simulator (Guaranteed execution + Local Simulator Link)
   const handleSimulateIncident = useCallback(
@@ -322,7 +344,7 @@ export default function DashboardPage() {
         isSimulatedMode={isSimulatedMode}
         onToggleSimulatedMode={toggleSimulatedMode}
         onOpenAdmin={() => setIsAdminOpen(true)}
-        onRefresh={refreshAll}
+        onRefresh={handleManualRefresh}
         isRefreshing={isRefreshing}
       />
 
@@ -436,7 +458,7 @@ export default function DashboardPage() {
         isOpen={isAdminOpen}
         onClose={() => setIsAdminOpen(false)}
         telemetry={telemetry}
-        onRefreshAll={refreshAll}
+        onRefreshAll={handleManualRefresh}
         showToast={showToast}
         onSimulateIncident={handleSimulateIncident}
         isSimulatedMode={isSimulatedMode}
