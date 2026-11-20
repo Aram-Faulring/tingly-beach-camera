@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     if (apiKey) {
       const resend = new Resend(apiKey);
       const emailResult = await resend.emails.send({
-        from: process.env.EMAIL_FROM || 'Tingley Sentinel <onboarding@resend.dev>',
+        from: process.env.EMAIL_FROM || 'Tingley Sentinel <alerts@sandiapreprobotics.me>',
         to: [targetEmail],
         subject: subject,
         html: htmlContent,
