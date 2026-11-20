@@ -17,9 +17,9 @@ class CameraController:
         os.makedirs(CAPTURE_DIR, exist_ok=True)
         self.use_picam2 = False
 
-        # Attempt to test picam2 or libcamera
+        # Attempt to test picamera2 or libcamera
         try:
-            from picam2 import Picamera2
+            from picamera2 import Picamera2
             self.picam2 = Picamera2()
             config = self.picam2.create_still_configuration(main={"size": CAMERA_RESOLUTION})
             self.picam2.configure(config)
@@ -27,7 +27,7 @@ class CameraController:
             self.use_picam2 = True
             logger.info("Hardware Picamera2 initialized successfully.")
         except Exception as e:
-            logger.warning(f"Picamera2 not active ({e}). Falling back to rpicam-still / libcamera-still CLI or mock.")
+            logger.warning(f"Picamera2 initialization error ({e}). Falling back to rpicam-still / libcamera CLI.")
 
     def capture_frame(self, filename_prefix="capture"):
         """Captures a frame and returns the saved file path."""
