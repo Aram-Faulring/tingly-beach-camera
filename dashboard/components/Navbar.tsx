@@ -1,127 +1,93 @@
 'use client';
 
 import React from 'react';
-import { Camera, ShieldAlert, Cpu, Wifi, Zap, Play, Mail, Layers } from 'lucide-react';
+import { Camera, ShieldAlert, Layers, Lock, RefreshCw } from 'lucide-react';
 import { DeviceTelemetry } from '@/types/incident';
 
 interface NavbarProps {
   telemetry: DeviceTelemetry | null;
-  onOpenSimulate: () => void;
-  onOpenEmail: () => void;
-  onOpenHardware: () => void;
-  activeTab: 'incidents' | 'map' | 'hardware';
-  setActiveTab: (tab: 'incidents' | 'map' | 'hardware') => void;
+  activeTab: 'gallery' | 'map';
+  setActiveTab: (tab: 'gallery' | 'map') => void;
+  onOpenAdmin: () => void;
+  onRefresh: () => void;
+  isRefreshing: boolean;
 }
 
 export function Navbar({
   telemetry,
-  onOpenSimulate,
-  onOpenEmail,
-  onOpenHardware,
   activeTab,
   setActiveTab,
+  onOpenAdmin,
+  onRefresh,
+  isRefreshing,
 }: NavbarProps) {
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-950/85 backdrop-blur-md">
+    <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
-        {/* Brand & Unit Identifier */}
+        {/* Brand & Sentinel Identity */}
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 shadow-inner">
-            <Camera className="h-6 w-6" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+            <Camera className="h-5 w-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl">
+              <h1 className="text-base font-bold tracking-tight text-white sm:text-lg">
                 Tingley Beach Sentinel
               </h1>
-              <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
-                EDGE AI UNIT 01
+              <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Live Monitoring
               </span>
             </div>
             <p className="text-xs text-slate-400">
-              Albuquerque, NM • Wildlife Mortality & Fishing Compliance Monitor
+              Autonomous Wildlife & Lake Monitor • Albuquerque, NM
             </p>
           </div>
         </div>
 
-        {/* View Switcher Navigation */}
-        <div className="hidden md:flex items-center rounded-lg bg-slate-900 border border-slate-800 p-1">
+        {/* View Switcher: Gallery vs Map */}
+        <div className="flex items-center rounded-lg bg-slate-900 border border-slate-800 p-0.5">
           <button
-            onClick={() => setActiveTab('incidents')}
+            onClick={() => setActiveTab('gallery')}
             className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-              activeTab === 'incidents'
-                ? 'bg-emerald-600 text-white shadow-sm'
+              activeTab === 'gallery'
+                ? 'bg-slate-800 text-white shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <ShieldAlert className="h-3.5 w-3.5" />
-            Alerts & Captures
+            <ShieldAlert className="h-3.5 w-3.5 text-emerald-400" />
+            Live Gallery
           </button>
           <button
             onClick={() => setActiveTab('map')}
             className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition ${
               activeTab === 'map'
-                ? 'bg-emerald-600 text-white shadow-sm'
+                ? 'bg-slate-800 text-white shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Layers className="h-3.5 w-3.5" />
-            Tingley Map
-          </button>
-          <button
-            onClick={() => setActiveTab('hardware')}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-              activeTab === 'hardware'
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Cpu className="h-3.5 w-3.5" />
-            Hardware & Breadboard
+            <Layers className="h-3.5 w-3.5 text-sky-400" />
+            Pond Map
           </button>
         </div>
 
-        {/* Live Vitals & Action Buttons */}
+        {/* Refresh & Admin Access */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Pi Status Badge */}
-          <div className="hidden lg:flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/80 px-3 py-1.5 text-xs text-slate-300">
-            <div className="flex items-center gap-1.5">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
-              </span>
-              <span className="font-semibold text-slate-200">Pi 4 Online</span>
-            </div>
-            <span className="text-slate-600">|</span>
-            <div className="flex items-center gap-1 text-slate-400">
-              <Wifi className="h-3 w-3 text-sky-400" />
-              <span>5GHz</span>
-            </div>
-            <span className="text-slate-600">|</span>
-            <div className="flex items-center gap-1 text-slate-400">
-              <Zap className="h-3 w-3 text-amber-400" />
-              <span>5V/3A Wall Power</span>
-            </div>
-          </div>
-
-          {/* Test / Simulate Trigger Button */}
           <button
-            onClick={onOpenSimulate}
-            className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 transition"
-            title="Simulate PIR motion or hourly trigger"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            title="Refresh stream"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800 transition disabled:opacity-50"
           >
-            <Play className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Simulate</span> Event
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin text-emerald-400' : ''}`} />
           </button>
 
-          {/* Email Settings Button */}
           <button
-            onClick={onOpenEmail}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 transition"
-            title="Configure alert emails"
+            onClick={onOpenAdmin}
+            className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 px-3 py-1.5 text-xs font-semibold text-amber-300 transition shadow-sm"
           >
-            <Mail className="h-3.5 w-3.5 text-sky-400" />
-            <span className="hidden sm:inline">Email</span> Alerts
+            <Lock className="h-3.5 w-3.5" />
+            <span>Admin</span>
           </button>
         </div>
       </div>

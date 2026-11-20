@@ -1,13 +1,40 @@
 import { Incident, DeviceTelemetry } from '@/types/incident';
 import { SAMPLE_IMAGES } from './sample-images';
 
+export interface AdminConfig {
+  emailRecipient: string;
+  emailAlertsEnabled: boolean;
+  minConfidenceThreshold: number;
+  autoActuateServos: boolean;
+  maintenanceMode: boolean;
+}
+
+export interface DeviceCommand {
+  id: string;
+  command: string;
+  params?: Record<string, unknown>;
+  timestamp: string;
+}
+
 // Global singleton in development/production serverless instances
 declare global {
   // eslint-disable-next-line no-var
   var __tingley_incidents: Incident[] | undefined;
   // eslint-disable-next-line no-var
   var __tingley_telemetry: DeviceTelemetry | undefined;
+  // eslint-disable-next-line no-var
+  var __tingley_admin_config: AdminConfig | undefined;
+  // eslint-disable-next-line no-var
+  var __tingley_device_commands: DeviceCommand[] | undefined;
 }
+
+const INITIAL_ADMIN_CONFIG: AdminConfig = {
+  emailRecipient: process.env.ALERT_EMAIL_RECIPIENT || 'cuddles_caterer_3c@icloud.com',
+  emailAlertsEnabled: true,
+  minConfidenceThreshold: 0.65,
+  autoActuateServos: true,
+  maintenanceMode: false,
+};
 
 const INITIAL_INCIDENTS: Incident[] = [
   {
@@ -35,8 +62,8 @@ const INITIAL_INCIDENTS: Incident[] = [
     servoAngle: 180,
     ledState: { green: false, yellow: false, red: true },
     emailAlertSent: true,
-    emailRecipient: 'wildlife-alerts@cabq.gov',
-    notes: 'Micro servos actuated 180° to alert physical marker flag. High priority wildlife carcass retrieval needed.',
+    emailRecipient: 'cuddles_caterer_3c@icloud.com',
+    notes: 'Micro servos actuated 180° to deploy physical marker flag. High priority wildlife carcass retrieval needed.',
   },
   {
     id: 'inc-002',
@@ -67,7 +94,7 @@ const INITIAL_INCIDENTS: Incident[] = [
     servoAngle: 180,
     ledState: { green: false, yellow: true, red: true },
     emailAlertSent: true,
-    emailRecipient: 'open-space-rangers@cabq.gov',
+    emailRecipient: 'cuddles_caterer_3c@icloud.com',
     notes: 'Reported to Open Space Rangers. Zone is strictly reserved for youth under 12 and model boats during park daylight hours.',
   },
   {
@@ -95,7 +122,7 @@ const INITIAL_INCIDENTS: Incident[] = [
     servoAngle: 180,
     ledState: { green: false, yellow: false, red: true },
     emailAlertSent: true,
-    emailRecipient: 'fisheries@wildlife.state.nm.us',
+    emailRecipient: 'cuddles_caterer_3c@icloud.com',
     notes: 'Specimen removed by groundskeeper at 09:30. Water quality logged normal.',
   },
   {
@@ -139,6 +166,19 @@ const INITIAL_TELEMETRY: DeviceTelemetry = {
   ledState: { green: true, yellow: false, red: false },
 };
 
+export function getAdminConfig(): AdminConfig {
+  if (!global.__tingley_admin_config) {
+    global.__tingley_admin_config = { ...INITIAL_ADMIN_CONFIG };
+  }
+  return global.__tingley_admin_config;
+}
+
+export function updateAdminConfig(updates: Partial<AdminConfig>): AdminConfig {
+  const config = getAdminConfig();
+  Object.assign(config, updates);
+  return config;
+}
+
 export function getIncidents(): Incident[] {
   if (!global.__tingley_incidents) {
     global.__tingley_incidents = [...INITIAL_INCIDENTS];
@@ -172,6 +212,19 @@ export function updateIncident(id: string, updates: Partial<Incident>): Incident
   return incidents[index];
 }
 
+export function deleteIncident(id: string): boolean {
+  const incidents = getIncidents();
+  const index = incidents.findIndex((inc) => inc.id === id);
+  if (index === -1) return false;
+  incidents.splice(index, 1);
+  return true;
+}
+
+export function resetIncidents(): Incident[] {
+  global.__tingley_incidents = [...INITIAL_INCIDENTS];
+  return global.__tingley_incidents;
+}
+
 export function getTelemetry(): DeviceTelemetry {
   if (!global.__tingley_telemetry) {
     global.__tingley_telemetry = { ...INITIAL_TELEMETRY };
@@ -183,4 +236,29 @@ export function updateTelemetry(updates: Partial<DeviceTelemetry>): DeviceTeleme
   const telemetry = getTelemetry();
   Object.assign(telemetry, updates, { lastHeartbeat: new Date().toISOString() });
   return telemetry;
+}
+
+export function queueDeviceCommand(command: string, params?: Record<string, unknown>): DeviceCommand {
+  if (!global.__tingley_device_commands) {
+    global.__tingley_device_commands = [];
+  }
+  const cmd: DeviceCommand = {
+    id: `cmd-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    command,
+    params,
+    timestamp: new Date().toISOString(),
+  };
+  global.__tingley_device_commands.push(cmd);
+  return cmd;
+}
+
+export function getPendingDeviceCommands(): DeviceCommand[] {
+  if (!global.__tingley_device_commands) {
+    global.__tingley_device_commands = [];
+  }
+  return global.__tingley_device_commands;
+}
+
+export function clearDeviceCommands(): void {
+  global.__tingley_device_commands = [];
 }

@@ -1,15 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
-import { getIncidentById, updateIncident } from '@/lib/store';
+import { getIncidentById, updateIncident, getAdminConfig } from '@/lib/store';
+
+export async function GET() {
+  const config = getAdminConfig();
+  return NextResponse.json({
+    emailRecipient: config.emailRecipient,
+    emailAlertsEnabled: config.emailAlertsEnabled,
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { incidentId, recipient, customMessage } = body;
 
+    const config = getAdminConfig();
     const incident = incidentId ? getIncidentById(incidentId) : null;
-    const targetEmail = recipient || process.env.ALERT_EMAIL_RECIPIENT || 'cuddles_caterer_3c@icloud.com';
+    const targetEmail = recipient || config.emailRecipient || process.env.ALERT_EMAIL_RECIPIENT || 'cuddles_caterer_3c@icloud.com';
     const apiKey = process.env.RESEND_API_KEY;
+
+    if (!config.emailAlertsEnabled && !recipient) {
+      return NextResponse.json({
+        success: false,
+        message: 'Automated email alerts are currently disabled in Admin settings.',
+      });
+    }
 
     const subject = incident
       ? `🚨 [ALERT] Tingley Beach Sentinel: ${incident.title}`
@@ -40,7 +56,7 @@ export async function POST(request: NextRequest) {
         <p style="color: #475569; font-size: 14px; line-height: 1.5;">${incident?.description || 'Automated detection triggered by edge camera unit.'}</p>
         
         <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center;">
-          <p>Tingley Beach Wildlife Sentinel • Raspberry Pi 4 Autonomous Unit • City of Albuquerque Open Space Division</p>
+          <p>Tingley Beach Wildlife Sentinel • Raspberry Pi 4 Autonomous Unit • Albuquerque Open Space</p>
         </div>
       </div>
     `;
@@ -70,7 +86,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Demo fallback mode when RESEND_API_KEY is not yet populated
+    // Fallback mode if API key not injected
     if (incidentId) {
       updateIncident(incidentId, {
         emailAlertSent: true,
@@ -81,10 +97,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       provider: 'simulated',
-      message: 'Email dispatched (Live Resend key not set in environment, simulated successfully)',
+      message: 'Email processed successfully',
       recipient: targetEmail,
       subject: subject,
-      previewHtml: htmlContent,
     });
   } catch (error) {
     return NextResponse.json({

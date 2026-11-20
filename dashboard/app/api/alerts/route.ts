@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getIncidents, addIncident } from '@/lib/store';
+import { getIncidents, addIncident, getAdminConfig, updateTelemetry } from '@/lib/store';
 import { Incident, IncidentType, IncidentStatus } from '@/types/incident';
 
 export async function GET(request: NextRequest) {
@@ -30,10 +30,11 @@ export async function POST(request: NextRequest) {
     const apiKey = request.headers.get('x-api-key') || body.apiKey;
     const expectedKey = process.env.DEVICE_API_KEY || 'tingley-edge-secret-key-2026';
     
-    // In demo / test modes we allow if apiKey matches or if simulating
     if (apiKey && apiKey !== expectedKey) {
       return NextResponse.json({ error: 'Unauthorized device key' }, { status: 401 });
     }
+
+    const adminConfig = getAdminConfig();
 
     const newIncident: Incident = {
       id: `inc-${Date.now().toString().slice(-6)}`,
@@ -55,12 +56,21 @@ export async function POST(request: NextRequest) {
       ledState: body.type === 'routine_snapshot' 
         ? { green: true, yellow: false, red: false }
         : { green: false, yellow: false, red: true },
-      emailAlertSent: body.sendEmail !== false,
-      emailRecipient: body.emailRecipient || process.env.ALERT_EMAIL_RECIPIENT || 'wildlife-response@cabq.gov',
+      emailAlertSent: adminConfig.emailAlertsEnabled && body.sendEmail !== false,
+      emailRecipient: adminConfig.emailRecipient,
       notes: body.notes || 'Ingested from Raspberry Pi 4 edge camera.',
     };
 
     addIncident(newIncident);
+
+    // Update telemetry state
+    updateTelemetry({
+      lastHeartbeat: new Date().toISOString(),
+      cameraStatus: 'ready',
+      pirSensorStatus: body.trigger === 'pir_motion' ? 'triggered' : 'idle',
+      servoAngles: newIncident.servosTriggered ? [180, 180] : [0, 0],
+      ledState: newIncident.ledState,
+    });
 
     return NextResponse.json({
       success: true,
