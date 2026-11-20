@@ -29,10 +29,11 @@ class CameraController:
         except Exception as e:
             logger.warning(f"Picamera2 initialization error ({e}). Falling back to rpicam-still / libcamera CLI.")
 
-    def capture_frame(self, filename_prefix="capture"):
+    def capture_frame(self, prefix="capture", filename_prefix=None):
         """Captures a frame and returns the saved file path."""
+        tag = filename_prefix or prefix
         timestamp = int(time.time())
-        output_path = os.path.join(CAPTURE_DIR, f"{filename_prefix}_{timestamp}.jpg")
+        output_path = os.path.join(CAPTURE_DIR, f"{tag}_{timestamp}.jpg")
 
         if self.use_picam2:
             try:

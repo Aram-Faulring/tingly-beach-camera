@@ -44,7 +44,8 @@ class TingleyBeachSentinelDaemon:
         self.lock = Lock()
         self.camera = CameraController()
         self.inference = EdgeInferenceEngine()
-        self.gpio = HardwareGPIOController(on_motion_detected=self.handle_motion_event)
+        self.gpio = HardwareGPIOController()
+        self.gpio.on_motion_callback = self.handle_motion_event
         self.running = True
 
     def handle_motion_event(self):
