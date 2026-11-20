@@ -15,7 +15,7 @@ import {
   createSimulatedTelemetry,
   simulateTelemetryTick,
 } from '@/lib/simulation-engine';
-import { Zap, Sparkles } from 'lucide-react';
+import { Zap, Sparkles, Laptop } from 'lucide-react';
 
 const AUTO_SCENARIOS = ['dead_duck', 'illegal_fishing', 'dead_fish', 'dead_goose', 'routine_day'];
 
@@ -29,8 +29,9 @@ export default function DashboardPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Simulated Mode State
+  // Simulated Mode State & Local Device Simulator Link
   const [isSimulatedMode, setIsSimulatedMode] = useState<boolean>(false);
+  const [localSimulatorActive, setLocalSimulatorActive] = useState<boolean>(false);
   const [isAutoSimulate, setIsAutoSimulate] = useState<boolean>(false);
   const [autoCountdown, setAutoCountdown] = useState<number>(20);
   const autoScenarioIndex = useRef(0);
@@ -40,7 +41,36 @@ export default function DashboardPage() {
     setTimeout(() => setToastMessage(null), 4000);
   }, []);
 
-  // Check initial Simulated Mode preference from localStorage
+  // Probe local device simulator on port 8080
+  const checkLocalSimulator = useCallback(async () => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1200);
+      const res = await fetch('http://localhost:8080/status', {
+        signal: controller.signal,
+        mode: 'cors',
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const data = await res.json();
+        setLocalSimulatorActive(true);
+        // Automatically adopt simulated mode when local hardware simulator is running
+        setIsSimulatedMode(true);
+        setTelemetry((prev) => ({
+          ...(prev || createSimulatedTelemetry()),
+          ...data,
+          online: true,
+          simulatorOnline: true,
+        }));
+        return true;
+      }
+    } catch {
+      setLocalSimulatorActive(false);
+    }
+    return false;
+  }, []);
+
+  // Check initial Simulated Mode preference from localStorage & probe local simulator
   useEffect(() => {
     try {
       const saved = localStorage.getItem('tingley_simulated_mode');
@@ -48,9 +78,10 @@ export default function DashboardPage() {
         setIsSimulatedMode(true);
       }
     } catch {
-      // localStorage unavailable in private sandbox
+      // localStorage unavailable
     }
-  }, []);
+    checkLocalSimulator();
+  }, [checkLocalSimulator]);
 
   // Fetch incidents from API
   const fetchIncidents = useCallback(async () => {
@@ -72,7 +103,13 @@ export default function DashboardPage() {
       if (res.ok) {
         const data = await res.json();
         if (data.telemetry) {
-          setTelemetry(data.telemetry);
+          setTelemetry((prev) => {
+            // Keep local simulator flag if active
+            if (localSimulatorActive) {
+              return { ...data.telemetry, simulatorOnline: true };
+            }
+            return data.telemetry;
+          });
         }
       }
     } catch (err) {
@@ -82,13 +119,13 @@ export default function DashboardPage() {
         setTelemetry(createSimulatedTelemetry());
       }
     }
-  }, [isSimulatedMode, telemetry]);
+  }, [isSimulatedMode, telemetry, localSimulatorActive]);
 
   const refreshAll = useCallback(async () => {
     setIsRefreshing(true);
-    await Promise.all([fetchIncidents(), fetchTelemetry()]);
+    await Promise.all([fetchIncidents(), fetchTelemetry(), checkLocalSimulator()]);
     setIsRefreshing(false);
-  }, [fetchIncidents, fetchTelemetry]);
+  }, [fetchIncidents, fetchTelemetry, checkLocalSimulator]);
 
   // Periodic refresh when NOT auto-simulating
   useEffect(() => {
@@ -97,7 +134,7 @@ export default function DashboardPage() {
       if (!isAutoSimulate) {
         refreshAll();
       }
-    }, 12000);
+    }, 8000);
     return () => clearInterval(timer);
   }, [refreshAll, isAutoSimulate]);
 
@@ -114,7 +151,8 @@ export default function DashboardPage() {
         if (!telemetry) {
           setTelemetry(createSimulatedTelemetry());
         }
-        showToast('⚡ Simulated Mode Activated — Always Works (Offline & Cloud Ready)');
+        checkLocalSimulator();
+        showToast('⚡ Simulated Mode Activated — Local Sandbox & Device Simulator Ready');
       } else {
         setIsAutoSimulate(false);
         showToast('Switched to Live Edge Camera feed');
@@ -122,9 +160,9 @@ export default function DashboardPage() {
       }
       return next;
     });
-  }, [telemetry, showToast, refreshAll]);
+  }, [telemetry, showToast, refreshAll, checkLocalSimulator]);
 
-  // 1. Instant optimistic incident simulator (Guaranteed execution)
+  // 1. Instant optimistic incident simulator (Guaranteed execution + Local Simulator Link)
   const handleSimulateIncident = useCallback(
     async (scenarioKey: string) => {
       // Create incident locally in 0ms
@@ -149,7 +187,17 @@ export default function DashboardPage() {
       // User feedback toast
       showToast(`Injected: ${newIncident.title} (${newIncident.severity.toUpperCase()})`);
 
-      // Sync to backend in background (never throws or stalls UI)
+      // If local Mac device simulator is online, dispatch to localhost:8080/trigger
+      if (localSimulatorActive) {
+        fetch('http://localhost:8080/trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scenario: scenarioKey }),
+          mode: 'cors',
+        }).catch(() => {});
+      }
+
+      // Sync to cloud backend in background (never stalls UI)
       try {
         await fetch('/api/simulate', {
           method: 'POST',
@@ -160,10 +208,10 @@ export default function DashboardPage() {
         console.warn('Backend sync deferred (operating in offline simulation)', err);
       }
     },
-    [showToast]
+    [showToast, localSimulatorActive]
   );
 
-  // 2. Instant virtual servo actuation
+  // 2. Instant virtual servo actuation (+ Local Mac Simulator Link)
   const handleActuateServos = useCallback(
     async (angle: number) => {
       setTelemetry((prev) => {
@@ -180,6 +228,12 @@ export default function DashboardPage() {
 
       showToast(`Dual SG90 Servos rotated to ${angle}° (${angle >= 90 ? 'Alert Flag' : 'Rest Position'})`);
 
+      // Forward to local Python device simulator on port 8080
+      if (localSimulatorActive) {
+        const endpoint = angle >= 90 ? 'http://localhost:8080/deploy' : 'http://localhost:8080/reset';
+        fetch(endpoint, { method: 'POST', mode: 'cors' }).catch(() => {});
+      }
+
       try {
         await fetch('/api/simulate', {
           method: 'POST',
@@ -190,10 +244,10 @@ export default function DashboardPage() {
         console.warn('Backend actuator sync deferred', err);
       }
     },
-    [showToast]
+    [showToast, localSimulatorActive]
   );
 
-  // 3. Instant traffic LED switching
+  // 3. Instant traffic LED switching (+ Local Mac Simulator Link)
   const handleSetLeds = useCallback(
     async (color: 'green' | 'yellow' | 'red') => {
       setTelemetry((prev) => {
@@ -210,6 +264,16 @@ export default function DashboardPage() {
 
       showToast(`Traffic Light Modules set to ${color.toUpperCase()}`);
 
+      // Forward to local Python device simulator on port 8080
+      if (localSimulatorActive) {
+        fetch('http://localhost:8080/leds', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ledColor: color }),
+          mode: 'cors',
+        }).catch(() => {});
+      }
+
       try {
         await fetch('/api/simulate', {
           method: 'POST',
@@ -220,10 +284,10 @@ export default function DashboardPage() {
         console.warn('Backend LED sync deferred', err);
       }
     },
-    [showToast]
+    [showToast, localSimulatorActive]
   );
 
-  // 4. Instant PIR motion pulse (3s wave)
+  // 4. Instant PIR motion pulse (3s wave + Local Mac Simulator Link)
   const handlePulsePir = useCallback(() => {
     setTelemetry((prev) => {
       const base = prev || createSimulatedTelemetry();
@@ -234,6 +298,11 @@ export default function DashboardPage() {
     });
 
     showToast('📡 PIR Motion Sensor Interrupt Fired (GPIO 17 High)');
+
+    // Forward to local Python device simulator on port 8080
+    if (localSimulatorActive) {
+      fetch('http://localhost:8080/pir', { method: 'POST', mode: 'cors' }).catch(() => {});
+    }
 
     setTimeout(() => {
       setTelemetry((prev) => {
@@ -254,12 +323,17 @@ export default function DashboardPage() {
     } catch {
       // Ignore
     }
-  }, [showToast]);
+  }, [showToast, localSimulatorActive]);
 
   // 5. Reset demo incidents & telemetry back to baseline
   const handleResetSimulation = useCallback(async () => {
     setTelemetry(createSimulatedTelemetry());
     showToast('Resetting sentinel data back to clean baseline...');
+
+    // Forward to local Python device simulator on port 8080
+    if (localSimulatorActive) {
+      fetch('http://localhost:8080/reset', { method: 'POST', mode: 'cors' }).catch(() => {});
+    }
 
     try {
       const res = await fetch('/api/simulate', {
@@ -271,12 +345,11 @@ export default function DashboardPage() {
         await fetchIncidents();
       }
     } catch {
-      // If serverless is offline, refresh incidents
       await fetchIncidents();
     }
 
     showToast('Sentinel demo incidents and actuators restored to baseline');
-  }, [showToast, fetchIncidents]);
+  }, [showToast, fetchIncidents, localSimulatorActive]);
 
   // Auto-Simulate background countdown & scenario runner
   useEffect(() => {
@@ -325,6 +398,7 @@ export default function DashboardPage() {
         onOpenAdmin={() => setIsAdminOpen(true)}
         onRefresh={refreshAll}
         isRefreshing={isRefreshing}
+        localSimulatorActive={localSimulatorActive}
       />
 
       {/* Main Content Area */}
@@ -342,6 +416,8 @@ export default function DashboardPage() {
             isAutoSimulate={isAutoSimulate}
             setIsAutoSimulate={setIsAutoSimulate}
             autoCountdown={autoCountdown}
+            localSimulatorActive={localSimulatorActive}
+            onCheckLocalSimulator={checkLocalSimulator}
           />
         ) : (
           /* Subtle Discovery Bar for Simulated Mode when in Live Mode */
@@ -349,16 +425,24 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
               <span>
-                Demonstrating without a physical Raspberry Pi connected? Turn on <strong>Simulated Mode</strong> to test live detection scenarios and virtual breadboard servos.
+                Demonstrating without a physical Raspberry Pi connected? Turn on <strong>Simulated Mode</strong> to test live detection scenarios, virtual breadboard servos, or connect to your local Mac device simulator.
               </span>
             </div>
-            <button
-              onClick={toggleSimulatedMode}
-              className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 px-3 py-1 text-xs font-semibold text-amber-300 transition shrink-0"
-            >
-              <Zap className="h-3.5 w-3.5" />
-              <span>Enable Simulated Mode</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {localSimulatorActive && (
+                <span className="flex items-center gap-1.5 text-emerald-400 font-semibold text-xs bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-1 rounded-md">
+                  <Laptop className="h-3.5 w-3.5" />
+                  Mac Simulator Detected (:8080)
+                </span>
+              )}
+              <button
+                onClick={toggleSimulatedMode}
+                className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 px-3 py-1 text-xs font-semibold text-amber-300 transition shrink-0"
+              >
+                <Zap className="h-3.5 w-3.5" />
+                <span>Enable Simulated Mode</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -419,7 +503,11 @@ export default function DashboardPage() {
       <footer className="border-t border-slate-900 bg-slate-950 py-6 text-center text-xs text-slate-500">
         <p>Tingley Beach Sentinel • City of Albuquerque Open Space Division • Powered by Raspberry Pi 4 Edge AI</p>
         <p className="mt-1 text-[11px] text-slate-600">
-          {isSimulatedMode ? 'Operating in Deterministic Simulated Sandbox' : 'Connected to Tingley Edge Camera Stream'}
+          {localSimulatorActive
+            ? 'Connected to Local Device Simulator on macOS (port 8080)'
+            : isSimulatedMode
+            ? 'Operating in Deterministic Simulated Sandbox'
+            : 'Connected to Tingley Edge Camera Stream'}
         </p>
       </footer>
 

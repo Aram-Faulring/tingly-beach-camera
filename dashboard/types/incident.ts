@@ -58,4 +58,6 @@ export interface DeviceTelemetry {
     yellow: boolean;
     red: boolean;
   };
+  isSimulator?: boolean;
+  simulatorOnline?: boolean;
 }

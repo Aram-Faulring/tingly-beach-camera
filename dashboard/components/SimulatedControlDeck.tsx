@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Zap,
   Play,
@@ -14,10 +14,9 @@ import {
   Sparkles,
   Check,
   Activity,
-  Layers,
+  Laptop,
 } from 'lucide-react';
-import { Incident, DeviceTelemetry } from '@/types/incident';
-import { SIMULATION_SCENARIOS, createSimulatedIncident, createSimulatedTelemetry } from '@/lib/simulation-engine';
+import { DeviceTelemetry } from '@/types/incident';
 
 interface SimulatedControlDeckProps {
   telemetry: DeviceTelemetry | null;
@@ -30,6 +29,8 @@ interface SimulatedControlDeckProps {
   isAutoSimulate: boolean;
   setIsAutoSimulate: (val: boolean) => void;
   autoCountdown: number;
+  localSimulatorActive?: boolean;
+  onCheckLocalSimulator?: () => void;
 }
 
 export function SimulatedControlDeck({
@@ -43,6 +44,8 @@ export function SimulatedControlDeck({
   isAutoSimulate,
   setIsAutoSimulate,
   autoCountdown,
+  localSimulatorActive = false,
+  onCheckLocalSimulator,
 }: SimulatedControlDeckProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeButton, setActiveButton] = useState<string | null>(null);
@@ -100,7 +103,7 @@ export function SimulatedControlDeck({
               </span>
             </div>
             <p className="text-xs text-slate-300 mt-0.5">
-              Instant deterministic Edge AI simulator with virtual breadboard actuation & telemetry generation
+              Deterministic Edge AI simulator with virtual breadboard actuation & telemetry generation
             </p>
           </div>
         </div>
@@ -154,6 +157,75 @@ export function SimulatedControlDeck({
       {/* Collapsible Body */}
       {!isCollapsed && (
         <div className="mt-4 space-y-4">
+          {/* Section 0: Local Device Simulator Connection Status Banner */}
+          <div
+            className={`rounded-xl border p-3.5 transition ${
+              localSimulatorActive
+                ? 'border-emerald-500/40 bg-emerald-950/20 shadow-md shadow-emerald-500/10'
+                : 'border-slate-800 bg-slate-950/60'
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={`p-2 rounded-lg ${
+                    localSimulatorActive
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  <Laptop className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-white">
+                      {localSimulatorActive
+                        ? 'Local Device Simulator: CONNECTED'
+                        : 'Local Device Simulator: STANDBY'}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        localSimulatorActive
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : 'bg-slate-800 text-slate-400'
+                      }`}
+                    >
+                      {localSimulatorActive ? 'Port 8080 Active • macOS Daemon' : 'Port 8080 Standby'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {localSimulatorActive
+                      ? 'Live socket link active: commands from this dashboard actuate your local Mac Python daemon in 0ms.'
+                      : 'Run the standalone simulator on your Mac for live physical servo simulation & terminal telemetry.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                {!localSimulatorActive ? (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <code className="text-[11px] bg-slate-900 border border-slate-700 text-amber-300 px-2 py-1 rounded font-mono select-all">
+                      python3 device_simulator.py
+                    </code>
+                    {onCheckLocalSimulator && (
+                      <button
+                        onClick={onCheckLocalSimulator}
+                        className="rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1 text-xs font-medium transition"
+                      >
+                        Check Link
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-xs font-mono text-emerald-400 flex items-center gap-1.5">
+                    <Check className="h-3.5 w-3.5 text-emerald-400" />
+                    <span>Real-time link synchronized</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Section 1: Five Anomaly Scenario Presets */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -331,9 +403,13 @@ export function SimulatedControlDeck({
                     <RotateCw className="h-3.5 w-3.5 text-indigo-400" />
                     Dual Servos (GPIO 12/13)
                   </span>
-                  <span className={`font-mono text-[11px] px-1.5 py-0.5 rounded font-bold ${
-                    servoAngle >= 90 ? 'bg-indigo-500/20 text-indigo-300' : 'bg-slate-800 text-slate-400'
-                  }`}>
+                  <span
+                    className={`font-mono text-[11px] px-1.5 py-0.5 rounded font-bold ${
+                      servoAngle >= 90
+                        ? 'bg-indigo-500/20 text-indigo-300'
+                        : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
                     {servoAngle}° {servoAngle >= 90 ? '(ALERT)' : '(REST)'}
                   </span>
                 </div>
@@ -371,9 +447,27 @@ export function SimulatedControlDeck({
                     Traffic LEDs (2x Modules)
                   </span>
                   <div className="flex items-center gap-1.5">
-                    <span className={`h-2.5 w-2.5 rounded-full ${leds.green ? 'bg-emerald-400 shadow-md shadow-emerald-400 ring-2 ring-emerald-300' : 'bg-emerald-950'}`} />
-                    <span className={`h-2.5 w-2.5 rounded-full ${leds.yellow ? 'bg-amber-400 shadow-md shadow-amber-400 ring-2 ring-amber-300' : 'bg-amber-950'}`} />
-                    <span className={`h-2.5 w-2.5 rounded-full ${leds.red ? 'bg-rose-500 shadow-md shadow-rose-500 ring-2 ring-rose-400' : 'bg-rose-950'}`} />
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full ${
+                        leds.green
+                          ? 'bg-emerald-400 shadow-md shadow-emerald-400 ring-2 ring-emerald-300'
+                          : 'bg-emerald-950'
+                      }`}
+                    />
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full ${
+                        leds.yellow
+                          ? 'bg-amber-400 shadow-md shadow-amber-400 ring-2 ring-amber-300'
+                          : 'bg-amber-950'
+                      }`}
+                    />
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full ${
+                        leds.red
+                          ? 'bg-rose-500 shadow-md shadow-rose-500 ring-2 ring-rose-400'
+                          : 'bg-rose-950'
+                      }`}
+                    />
                   </div>
                 </div>
                 <div className="flex gap-1.5">
@@ -414,12 +508,20 @@ export function SimulatedControlDeck({
               <div className="rounded-lg bg-slate-900/90 border border-slate-800 p-2.5 space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                    <Radio className={`h-3.5 w-3.5 ${pirTriggered ? 'text-amber-400 animate-ping' : 'text-slate-400'}`} />
+                    <Radio
+                      className={`h-3.5 w-3.5 ${
+                        pirTriggered ? 'text-amber-400 animate-ping' : 'text-slate-400'
+                      }`}
+                    />
                     PIR Sensor (GPIO 17)
                   </span>
-                  <span className={`font-mono text-[11px] px-1.5 py-0.5 rounded font-bold ${
-                    pirTriggered ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-400'
-                  }`}>
+                  <span
+                    className={`font-mono text-[11px] px-1.5 py-0.5 rounded font-bold ${
+                      pirTriggered
+                        ? 'bg-amber-500/20 text-amber-300'
+                        : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
                     {pirTriggered ? 'TRIGGERED (HIGH)' : 'IDLE (LOW)'}
                   </span>
                 </div>

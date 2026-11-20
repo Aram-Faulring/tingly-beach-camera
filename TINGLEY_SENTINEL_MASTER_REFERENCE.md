@@ -107,7 +107,38 @@ Breakout ribbon connects Pi 4 40-pin header to breadboard:
 
 ---
 
-## 5. How to Reconnect & Resume From Scratch
+## 5. Mac Local Hardware Device Simulator
+
+A complete Python edge device simulator designed to run natively on macOS without requiring physical Raspberry Pi hardware or GPIO breakout boards.
+
+### Launching the Simulator
+- **Desktop Shortcut**: Double-click `Start_Tingley_Simulator.command` located directly on your Desktop.
+- **Terminal Execution**:
+  ```bash
+  cd ~/.gemini/antigravity/scratch/tingly-beach-camera
+  python3 device_simulator.py
+  ```
+
+### Key Capabilities
+- **Local HTTP Daemon (Port 8080)**: Serves `/status`, `/reset`, `/deploy`, `/trigger`, `/leds`, and `/pir` with full CORS support.
+- **Automatic Dashboard Link**: The live web dashboard automatically detects when this simulator is running on your Mac and displays a green indicator badge (`Mac Simulator (:8080)`).
+- **Cloud Command Queue Polling**: Continuously listens to `COMMAND_QUEUE_URL` every 1.2s to execute servo resets and deployments initiated from the web dashboard in real time.
+- **Interactive Terminal Hotkeys**:
+  - `[1]` Simulate 🦆 Dead Mallard Duck
+  - `[2]` Simulate 🪿 Dead Canada Goose
+  - `[3]` Simulate 🎣 Illegal Night Fishing
+  - `[4]` Simulate 🐟 Dead Rainbow Trout
+  - `[5]` Simulate 🕒 Hourly Routine Baseline
+  - `[m]` Pulse PIR Motion Sensor (3s active interrupt)
+  - `[d]` Deploy Servos to 180° (Alert)
+  - `[r]` Reset Servos to 0° (Idle)
+  - `[g/y/e]` Switch LEDs (Green / Yellow / Red)
+  - `[a]` Toggle Autonomous Simulation Loop (every 18s)
+  - `[q]` Quit
+
+---
+
+## 6. How to Reconnect & Resume From Scratch
 
 If you ever need to set this up on a new computer or assist again:
 
