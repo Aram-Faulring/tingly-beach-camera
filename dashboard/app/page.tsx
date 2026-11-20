@@ -1,12 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Incident, DeviceTelemetry } from '@/types/incident';
+import { Incident, DeviceTelemetry, TriggerSource } from '@/types/incident';
 import { Navbar } from '@/components/Navbar';
 import { MetricsCards } from '@/components/MetricsCards';
 import { IncidentGallery } from '@/components/IncidentGallery';
-import { TingleyMap } from '@/components/TingleyMap';
-import { HardwareBreadboard } from '@/components/HardwareBreadboard';
 import { SimulatedControlDeck } from '@/components/SimulatedControlDeck';
 import { IncidentModal } from '@/components/IncidentModal';
 import { AdminPanelModal } from '@/components/AdminPanelModal';
@@ -14,6 +12,7 @@ import {
   createSimulatedIncident,
   createSimulatedTelemetry,
   simulateTelemetryTick,
+  SIMULATION_SCENARIOS,
 } from '@/lib/simulation-engine';
 import { Zap, Sparkles } from 'lucide-react';
 
@@ -22,7 +21,6 @@ const AUTO_SCENARIOS = ['dead_duck', 'illegal_fishing', 'dead_fish', 'dead_goose
 export default function DashboardPage() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [telemetry, setTelemetry] = useState<DeviceTelemetry | null>(null);
-  const [activeTab, setActiveTab] = useState<'gallery' | 'map' | 'hardware'>('gallery');
   const [activeFilter, setActiveFilter] = useState('all');
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
@@ -35,6 +33,7 @@ export default function DashboardPage() {
   const [autoCountdown, setAutoCountdown] = useState<number>(20);
   const autoScenarioIndex = useRef(0);
   const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoResetTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -146,40 +145,111 @@ export default function DashboardPage() {
     });
   }, [showToast, fetchIncidents, fetchTelemetry]);
 
-  // 1. Instant optimistic incident simulator (Guaranteed execution + Local Simulator Link)
+  // 1. Edge Incident Ingestion (Works exactly like actual Raspberry Pi hardware)
   const handleSimulateIncident = useCallback(
     async (scenarioKey: string) => {
-      // Create incident locally in 0ms
-      const newIncident = createSimulatedIncident(scenarioKey);
+      // 1. Get defined scenario payload
+      const scenario = SIMULATION_SCENARIOS[scenarioKey] || SIMULATION_SCENARIOS.dead_duck;
+      const isRoutine = scenario.type === 'routine_snapshot';
 
-      // Prepend to incidents list immediately
-      setIncidents((prev) => [newIncident, ...prev]);
+      const trigger: TriggerSource = isRoutine ? 'hourly_timer' : 'pir_motion';
 
-      // Update telemetry state immediately
+      // Construct identical JSON payload that Raspberry Pi device/service.py sends
+      const payload = {
+        apiKey: 'tingley-edge-secret-key-2026',
+        deviceId: 'tingley-pi4-01',
+        timestamp: new Date().toISOString(),
+        trigger,
+        type: scenario.type,
+        title: scenario.title,
+        description: scenario.description,
+        species: scenario.species,
+        confidence: scenario.confidence,
+        location: scenario.location,
+        pondZone: scenario.pondZone,
+        imageUrl: scenario.imageUrl,
+        boundingBoxes: scenario.boundingBoxes || [],
+        servosTriggered: scenario.servosTriggered,
+        servoAngle: scenario.servoAngle,
+        ledState: scenario.ledState,
+        sendEmail: scenario.servosTriggered,
+        notes: scenario.notes,
+      };
+
+      // Optimistic local update for 0ms instant UI feedback
+      const localIncident: Incident = {
+        id: `inc-${Date.now().toString().slice(-6)}`,
+        ...payload,
+        status: isRoutine ? 'resolved' : 'unreviewed',
+        severity: scenario.severity,
+        emailAlertSent: scenario.servosTriggered,
+        emailRecipient: 'cuddles_caterer_3c@icloud.com',
+      };
+      setIncidents((prev) => [localIncident, ...prev.filter((i) => i.id !== localIncident.id)]);
+
+      // Update telemetry state to match actuation
       setTelemetry((prev) => {
         const base = prev || createSimulatedTelemetry();
         return {
           ...base,
           online: true,
           lastHeartbeat: new Date().toISOString(),
-          servoAngles: newIncident.servosTriggered ? [180, 180] : [0, 0],
-          ledState: { ...newIncident.ledState },
-          pirSensorStatus: newIncident.trigger === 'pir_motion' ? 'triggered' : 'idle',
+          servoAngles: scenario.servosTriggered ? [180, 180] : [0, 0],
+          ledState: { ...scenario.ledState },
+          pirSensorStatus: !isRoutine ? 'triggered' : 'idle',
         };
       });
 
-      // User feedback toast
-      showToast(`Injected: ${newIncident.title} (${newIncident.severity.toUpperCase()})`);
+      showToast(`🚨 Ingested: ${scenario.title} (${scenario.severity.toUpperCase()})`);
 
-      // Sync to cloud backend in background (never stalls UI)
+      // 2. ACTUAL HTTP POST to /api/alerts (matching physical hardware network transmission)
       try {
-        await fetch('/api/simulate', {
+        const res = await fetch('/api/alerts', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scenario: scenarioKey }),
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': 'tingley-edge-secret-key-2026',
+          },
+          body: JSON.stringify(payload),
         });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.incident) {
+            setIncidents((prev) => [data.incident, ...prev.filter((i) => i.id !== localIncident.id && i.id !== data.incident.id)]);
+          }
+        }
       } catch (err) {
-        console.warn('Backend sync deferred (operating in offline simulation)', err);
+        console.warn('Network alert post deferred', err);
+      }
+
+      // 3. 15-second hardware auto-reset timer (EXACT BEHAVIOR AS RASPBERRY PI 4 DAEMON)
+      if (scenario.servosTriggered) {
+        if (autoResetTimerRef.current) clearTimeout(autoResetTimerRef.current);
+        autoResetTimerRef.current = setTimeout(() => {
+          setTelemetry((prev) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              servoAngles: [0, 0],
+              ledState: { green: true, yellow: false, red: false },
+              pirSensorStatus: 'idle',
+            };
+          });
+
+          // Sync auto-reset to /api/telemetry
+          fetch('/api/telemetry', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              servoAngles: [0, 0],
+              ledState: { green: true, yellow: false, red: false },
+              pirSensorStatus: 'idle',
+            }),
+          }).catch(() => {});
+
+          showToast('⏱️ Dual servos auto-reset to 0° (Green Ready) after 15s display');
+        }, 15000);
       }
     },
     [showToast]
@@ -202,11 +272,18 @@ export default function DashboardPage() {
 
       showToast(`Dual SG90 Servos rotated to ${angle}° (${angle >= 90 ? 'Alert Flag' : 'Rest Position'})`);
 
+      // Send to /api/telemetry
       try {
-        await fetch('/api/simulate', {
+        await fetch('/api/telemetry', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scenario: 'actuate_servos', angle }),
+          body: JSON.stringify({
+            servoAngles: [angle, angle],
+            ledState:
+              angle >= 90
+                ? { green: false, yellow: false, red: true }
+                : { green: true, yellow: false, red: false },
+          }),
         });
       } catch (err) {
         console.warn('Backend actuator sync deferred', err);
@@ -232,11 +309,18 @@ export default function DashboardPage() {
 
       showToast(`Traffic Light Modules set to ${color.toUpperCase()}`);
 
+      // Send to /api/telemetry
       try {
-        await fetch('/api/simulate', {
+        await fetch('/api/telemetry', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scenario: 'set_leds', ledColor: color }),
+          body: JSON.stringify({
+            ledState: {
+              green: color === 'green',
+              yellow: color === 'yellow',
+              red: color === 'red',
+            },
+          }),
         });
       } catch (err) {
         console.warn('Backend LED sync deferred', err);
@@ -257,6 +341,12 @@ export default function DashboardPage() {
 
     showToast('📡 PIR Motion Sensor Interrupt Fired (GPIO 17 High)');
 
+    fetch('/api/telemetry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pirSensorStatus: 'triggered' }),
+    }).catch(() => {});
+
     setTimeout(() => {
       setTelemetry((prev) => {
         if (!prev) return null;
@@ -265,21 +355,17 @@ export default function DashboardPage() {
           pirSensorStatus: 'idle',
         };
       });
-    }, 3200);
-
-    try {
-      fetch('/api/simulate', {
+      fetch('/api/telemetry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scenario: 'trigger_pir' }),
+        body: JSON.stringify({ pirSensorStatus: 'idle' }),
       }).catch(() => {});
-    } catch {
-      // Ignore
-    }
+    }, 3200);
   }, [showToast]);
 
   // 5. Reset demo incidents & telemetry back to baseline
   const handleResetSimulation = useCallback(async () => {
+    if (autoResetTimerRef.current) clearTimeout(autoResetTimerRef.current);
     setTelemetry(createSimulatedTelemetry());
     showToast('Resetting sentinel data back to clean baseline...');
 
@@ -290,7 +376,10 @@ export default function DashboardPage() {
         body: JSON.stringify({ scenario: 'reset' }),
       });
       if (res.ok) {
-        await fetchIncidents();
+        const data = await res.json();
+        if (Array.isArray(data.incidents)) {
+          setIncidents(data.incidents);
+        }
       }
     } catch {
       await fetchIncidents();
@@ -339,8 +428,6 @@ export default function DashboardPage() {
       {/* Top Navbar */}
       <Navbar
         telemetry={telemetry}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
         isSimulatedMode={isSimulatedMode}
         onToggleSimulatedMode={toggleSimulatedMode}
         onOpenAdmin={() => setIsAdminOpen(true)}
@@ -350,7 +437,7 @@ export default function DashboardPage() {
 
       {/* Main Content Area */}
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 space-y-6">
-        {/* If Simulated Mode is Active: Render the Full Interactive Control Deck */}
+        {/* If Simulated Mode is Active: Render the Edge Simulator Deck */}
         {isSimulatedMode ? (
           <SimulatedControlDeck
             telemetry={telemetry}
@@ -359,7 +446,6 @@ export default function DashboardPage() {
             onSetLeds={handleSetLeds}
             onPulsePir={handlePulsePir}
             onResetSimulation={handleResetSimulation}
-            onViewHardware={() => setActiveTab('hardware')}
             isAutoSimulate={isAutoSimulate}
             setIsAutoSimulate={setIsAutoSimulate}
             autoCountdown={autoCountdown}
@@ -370,7 +456,7 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
               <span>
-                Demonstrating without a physical Raspberry Pi connected? Turn on <strong>Simulated Mode</strong> to test live detection scenarios and virtual breadboard servos online.
+                Demonstrating without a physical Raspberry Pi connected? Turn on <strong>Edge Simulator</strong> to stream live detection payloads directly into the dashboard.
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -379,7 +465,7 @@ export default function DashboardPage() {
                 className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 px-3 py-1 text-xs font-semibold text-amber-300 transition shrink-0"
               >
                 <Zap className="h-3.5 w-3.5" />
-                <span>Enable Simulated Mode</span>
+                <span>Enable Simulator</span>
               </button>
             </div>
           </div>
@@ -390,52 +476,17 @@ export default function DashboardPage() {
           incidents={incidents}
           onFilterChange={(filter) => {
             setActiveFilter(filter);
-            setActiveTab('gallery');
           }}
           activeFilter={activeFilter}
         />
 
-        {/* Dynamic View Tab */}
-        {activeTab === 'gallery' && (
-          <IncidentGallery
-            incidents={incidents}
-            onSelectIncident={setSelectedIncident}
-            activeFilter={activeFilter}
-            setActiveFilter={setActiveFilter}
-          />
-        )}
-
-        {activeTab === 'map' && (
-          <TingleyMap
-            incidents={incidents}
-            onSelectIncident={setSelectedIncident}
-          />
-        )}
-
-        {activeTab === 'hardware' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-                  Hardware & Solderless Breadboard Diagnostics
-                </h2>
-                <p className="text-xs text-slate-400">
-                  Live state of 40-pin GPIO breakout, dual SG90 micro servos, dual traffic light LEDs, and PIR sensor
-                </p>
-              </div>
-              {!isSimulatedMode && (
-                <button
-                  onClick={toggleSimulatedMode}
-                  className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 transition"
-                >
-                  <Zap className="h-3.5 w-3.5" />
-                  <span>Test in Simulated Mode</span>
-                </button>
-              )}
-            </div>
-            <HardwareBreadboard telemetry={telemetry} />
-          </div>
-        )}
+        {/* Core Sentinel Live Gallery */}
+        <IncidentGallery
+          incidents={incidents}
+          onSelectIncident={setSelectedIncident}
+          activeFilter={activeFilter}
+          setActiveFilter={setActiveFilter}
+        />
       </main>
 
       {/* Footer */}

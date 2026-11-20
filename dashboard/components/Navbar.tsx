@@ -1,13 +1,11 @@
 'use client';
 
 import React from 'react';
-import { Camera, ShieldAlert, Layers, Lock, RefreshCw, Cpu, Zap } from 'lucide-react';
+import { Camera, Lock, RefreshCw, Zap, RotateCw, Activity, Cpu } from 'lucide-react';
 import { DeviceTelemetry } from '@/types/incident';
 
 interface NavbarProps {
   telemetry: DeviceTelemetry | null;
-  activeTab: 'gallery' | 'map' | 'hardware';
-  setActiveTab: (tab: 'gallery' | 'map' | 'hardware') => void;
   isSimulatedMode: boolean;
   onToggleSimulatedMode: () => void;
   onOpenAdmin: () => void;
@@ -17,16 +15,19 @@ interface NavbarProps {
 
 export function Navbar({
   telemetry,
-  activeTab,
-  setActiveTab,
   isSimulatedMode,
   onToggleSimulatedMode,
   onOpenAdmin,
   onRefresh,
   isRefreshing,
 }: NavbarProps) {
+  const servoAngle = telemetry?.servoAngles?.[0] ?? 0;
+  const isServoAlert = servoAngle >= 90;
+  const leds = telemetry?.ledState || { green: true, yellow: false, red: false };
+  const cpuTemp = telemetry?.cpuTempC ?? 46.8;
+
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md">
+    <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
         {/* Brand & Sentinel Identity */}
         <div className="flex items-center gap-3">
@@ -39,13 +40,13 @@ export function Navbar({
                 Tingley Beach Sentinel
               </h1>
               {isSimulatedMode ? (
-                <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 text-[10px] font-bold text-amber-300">
+                <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 text-[10px] font-bold text-amber-300">
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
-                  ⚡ Simulated Mode Active
+                  ⚡ Edge Simulator Active
                 </span>
               ) : (
                 <span
-                  className={`hidden sm:inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${
+                  className={`hidden sm:inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${
                     telemetry?.online
                       ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400'
                       : 'bg-rose-500/10 border-rose-500/25 text-rose-400'
@@ -56,51 +57,62 @@ export function Navbar({
                       telemetry?.online ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'
                     }`}
                   />
-                  {telemetry?.online ? 'Live Edge Pi' : 'Live Edge Pi (Offline)'}
+                  {telemetry?.online ? 'Live Edge Pi 4' : 'Edge Pi Offline'}
                 </span>
               )}
             </div>
             <p className="text-xs text-slate-400">
-              Autonomous Wildlife & Lake Monitor • Albuquerque, NM
+              Autonomous Wildlife & Lake Sentinel • Albuquerque, NM
             </p>
           </div>
         </div>
 
-        {/* View Switcher: Gallery vs Map vs Hardware Rig */}
-        <div className="hidden md:flex items-center rounded-lg bg-slate-900 border border-slate-800 p-0.5">
-          <button
-            onClick={() => setActiveTab('gallery')}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-              activeTab === 'gallery'
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
+        {/* Live Hardware Actuator Telemetry Badges */}
+        <div className="hidden lg:flex items-center gap-2.5 text-xs">
+          {/* Servos Status */}
+          <div
+            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 font-mono text-[11px] transition ${
+              isServoAlert
+                ? 'border-rose-500/40 bg-rose-950/30 text-rose-300 font-bold'
+                : 'border-slate-800 bg-slate-900/60 text-slate-300'
             }`}
+            title="SG90 Micro Servos (GPIO 12/13)"
           >
-            <ShieldAlert className="h-3.5 w-3.5 text-emerald-400" />
-            Live Gallery
-          </button>
-          <button
-            onClick={() => setActiveTab('map')}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-              activeTab === 'map'
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+            <RotateCw className={`h-3 w-3 ${isServoAlert ? 'text-rose-400 animate-spin' : 'text-slate-400'}`} />
+            <span>Servos: {servoAngle}° {isServoAlert ? '(ALERT FLAG)' : '(REST)'}</span>
+          </div>
+
+          {/* LED Indicator */}
+          <div
+            className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/60 px-2.5 py-1 text-[11px] font-mono text-slate-300"
+            title="Traffic Light Indicator LEDs"
           >
-            <Layers className="h-3.5 w-3.5 text-sky-400" />
-            Pond Map
-          </button>
-          <button
-            onClick={() => setActiveTab('hardware')}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-              activeTab === 'hardware'
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+            <Activity className="h-3 w-3 text-slate-400" />
+            <span className="flex items-center gap-1">
+              LED:
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  leds.red
+                    ? 'bg-rose-500 shadow-sm shadow-rose-500'
+                    : leds.yellow
+                    ? 'bg-amber-400 shadow-sm shadow-amber-400'
+                    : 'bg-emerald-400 shadow-sm shadow-emerald-400'
+                }`}
+              />
+              <span className={leds.red ? 'text-rose-300 font-bold' : leds.yellow ? 'text-amber-300' : 'text-emerald-300'}>
+                {leds.red ? 'RED' : leds.yellow ? 'YELLOW' : 'GREEN'}
+              </span>
+            </span>
+          </div>
+
+          {/* Core Temp */}
+          <div
+            className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/60 px-2.5 py-1 text-[11px] font-mono text-slate-400"
+            title="Raspberry Pi 4 CPU Temperature"
           >
-            <Cpu className="h-3.5 w-3.5 text-indigo-400" />
-            Hardware Rig
-          </button>
+            <Cpu className="h-3 w-3 text-indigo-400" />
+            <span>{cpuTemp}°C</span>
+          </div>
         </div>
 
         {/* Action Controls: Simulated Mode Toggle, Refresh, Admin */}
@@ -113,10 +125,10 @@ export function Navbar({
                 ? 'border-amber-500/50 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 ring-1 ring-amber-400/40'
                 : 'border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white'
             }`}
-            title={isSimulatedMode ? 'Switch back to Live Hardware Edge stream' : 'Switch to Interactive Simulated Mode (Always Operational)'}
+            title={isSimulatedMode ? 'Switch to Live Edge Pi feed' : 'Switch to Interactive Edge Simulator'}
           >
             <Zap className={`h-3.5 w-3.5 ${isSimulatedMode ? 'text-amber-400' : 'text-slate-400'}`} />
-            <span>{isSimulatedMode ? 'Simulated Mode' : 'Simulate'}</span>
+            <span>{isSimulatedMode ? 'Simulator Active' : 'Run Simulator'}</span>
           </button>
 
           {/* Refresh Stream */}
@@ -136,45 +148,6 @@ export function Navbar({
           >
             <Lock className="h-3.5 w-3.5 text-amber-400" />
             <span>Admin</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile View Switcher Row */}
-      <div className="flex md:hidden border-t border-slate-900 bg-slate-950 px-4 py-2 justify-center">
-        <div className="flex w-full items-center rounded-lg bg-slate-900 border border-slate-800 p-0.5 justify-around">
-          <button
-            onClick={() => setActiveTab('gallery')}
-            className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition ${
-              activeTab === 'gallery'
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <ShieldAlert className="h-3.5 w-3.5 text-emerald-400" />
-            Gallery
-          </button>
-          <button
-            onClick={() => setActiveTab('map')}
-            className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition ${
-              activeTab === 'map'
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Layers className="h-3.5 w-3.5 text-sky-400" />
-            Map
-          </button>
-          <button
-            onClick={() => setActiveTab('hardware')}
-            className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition ${
-              activeTab === 'hardware'
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Cpu className="h-3.5 w-3.5 text-indigo-400" />
-            Hardware
           </button>
         </div>
       </div>

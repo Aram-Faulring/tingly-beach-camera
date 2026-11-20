@@ -24,7 +24,6 @@ interface SimulatedControlDeckProps {
   onSetLeds: (color: 'green' | 'yellow' | 'red') => Promise<void> | void;
   onPulsePir: () => void;
   onResetSimulation: () => Promise<void> | void;
-  onViewHardware: () => void;
   isAutoSimulate: boolean;
   setIsAutoSimulate: (val: boolean) => void;
   autoCountdown: number;
@@ -37,7 +36,6 @@ export function SimulatedControlDeck({
   onSetLeds,
   onPulsePir,
   onResetSimulation,
-  onViewHardware,
   isAutoSimulate,
   setIsAutoSimulate,
   autoCountdown,
@@ -91,14 +89,14 @@ export function SimulatedControlDeck({
             <div className="flex items-center gap-2 flex-wrap">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 text-[11px] font-bold text-amber-300">
                 <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-                ONLINE SIMULATOR ACTIVE
+                EDGE SIMULATOR PIPELINE
               </span>
               <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
-                100% Operational • Browser & Cloud Native
+                Direct /api/alerts & /api/telemetry Ingestion • 15s Auto-Reset
               </span>
             </div>
             <p className="text-xs text-slate-300 mt-0.5">
-              Deterministic Sentinel AI simulator with virtual breadboard actuation & telemetry generation
+              Simulates physical camera captures and edge inference, transmitting JSON payloads directly to the dashboard API
             </p>
           </div>
         </div>
@@ -305,20 +303,16 @@ export function SimulatedControlDeck({
             </div>
           </div>
 
-          {/* Section 2: Virtual Actuator & Breadboard Diagnostic Controls */}
+          {/* Section 2: Hardware Actuator Controls */}
           <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
                 <Cpu className="h-3.5 w-3.5 text-sky-400" />
-                Virtual Breadboard Actuation & Direct Diagnostic Controls
+                Physical Actuator Telemetry & Trigger Test (SG90 Servos & LEDs)
               </span>
-              <button
-                onClick={onViewHardware}
-                className="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition flex items-center gap-1 self-start sm:self-auto"
-              >
-                <span>Open Solderless Breadboard Rig</span>
-                <span>→</span>
-              </button>
+              <span className="text-[11px] text-slate-400">
+                15-second auto-reset to 0° after alert
+              </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
