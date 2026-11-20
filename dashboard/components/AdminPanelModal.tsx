@@ -26,6 +26,8 @@ interface AdminPanelModalProps {
   telemetry: DeviceTelemetry | null;
   onRefreshAll: () => Promise<void>;
   showToast: (msg: string) => void;
+  onSimulateIncident?: (scenario: string) => Promise<void> | void;
+  isSimulatedMode?: boolean;
 }
 
 export function AdminPanelModal({
@@ -34,6 +36,8 @@ export function AdminPanelModal({
   telemetry,
   onRefreshAll,
   showToast,
+  onSimulateIncident,
+  isSimulatedMode,
 }: AdminPanelModalProps) {
   const [password, setPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -209,20 +213,24 @@ export function AdminPanelModal({
     }
   };
 
-  const handleSimulateIncident = async (scenario: 'dead_duck' | 'illegal_fishing' | 'dead_fish' | 'routine_day') => {
+  const handleSimulateIncident = async (scenario: 'dead_duck' | 'dead_goose' | 'illegal_fishing' | 'dead_fish' | 'routine_day') => {
     setActuatorLoading(`sim_${scenario}`);
     try {
-      const res = await fetch('/api/simulate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scenario }),
-      });
-
-      if (res.ok) {
-        showToast(`Simulated: ${scenario.replace('_', ' ')}`);
-        await onRefreshAll();
+      if (onSimulateIncident) {
+        await onSimulateIncident(scenario);
       } else {
-        showToast('Simulation trigger failed');
+        const res = await fetch('/api/simulate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scenario }),
+        });
+
+        if (res.ok) {
+          showToast(`Simulated: ${scenario.replace('_', ' ')}`);
+          await onRefreshAll();
+        } else {
+          showToast('Simulation trigger failed');
+        }
       }
     } catch (err) {
       console.error(err);
@@ -514,7 +522,7 @@ export function AdminPanelModal({
                   <span className="text-[11px] text-slate-400">PIR Motion & Edge AI Simulation</span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                   <button
                     onClick={() => handleSimulateIncident('dead_duck')}
                     disabled={Boolean(actuatorLoading)}
@@ -522,6 +530,15 @@ export function AdminPanelModal({
                   >
                     <span className="font-semibold">🦆 Dead Mallard</span>
                     <span className="text-[10px] text-slate-400 mt-0.5">Critical Alert</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleSimulateIncident('dead_goose')}
+                    disabled={Boolean(actuatorLoading)}
+                    className="flex flex-col items-center justify-center p-2.5 rounded-lg border border-rose-900/40 bg-rose-950/20 hover:bg-rose-900/30 text-rose-300 text-xs transition"
+                  >
+                    <span className="font-semibold">🪿 Dead Goose</span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">Waterfowl Alert</span>
                   </button>
 
                   <button
@@ -545,7 +562,7 @@ export function AdminPanelModal({
                   <button
                     onClick={() => handleSimulateIncident('routine_day')}
                     disabled={Boolean(actuatorLoading)}
-                    className="flex flex-col items-center justify-center p-2.5 rounded-lg border border-emerald-900/40 bg-emerald-950/20 hover:bg-emerald-900/30 text-emerald-300 text-xs transition"
+                    className="flex flex-col items-center justify-center p-2.5 rounded-lg border border-emerald-900/40 bg-emerald-950/20 hover:bg-emerald-900/30 text-emerald-300 text-xs transition col-span-2 sm:col-span-1"
                   >
                     <span className="font-semibold">🕒 Baseline Check</span>
                     <span className="text-[10px] text-slate-400 mt-0.5">Routine Nominal</span>

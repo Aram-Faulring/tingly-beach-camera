@@ -222,6 +222,7 @@ export function deleteIncident(id: string): boolean {
 
 export function resetIncidents(): Incident[] {
   global.__tingley_incidents = [...INITIAL_INCIDENTS];
+  global.__tingley_telemetry = { ...INITIAL_TELEMETRY };
   return global.__tingley_incidents;
 }
 

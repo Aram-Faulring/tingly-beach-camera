@@ -83,15 +83,18 @@ Breakout ribbon connects Pi 4 40-pin header to breadboard:
 - **Production URL**: `https://tingly-beach-camera-nj21.vercel.app`
 
 ### Dashboard Pages & Components
-- `dashboard/app/page.tsx`: Single-page app with view toggles (**Live Gallery** vs. **Pond Map**).
-- `dashboard/components/Navbar.tsx`: Minimalist top header with live online status badge, refresh button, and lock-protected Admin access button.
+- `dashboard/app/page.tsx`: Single-page app with view toggles (**Live Gallery**, **Pond Map**, **Hardware Rig**) and interactive **Simulated Mode**.
+- `dashboard/components/Navbar.tsx`: Header with live status badge, instant **Live Pi ↔ Simulated Mode** toggle, view switcher, refresh, and lock-protected Admin access.
+- `dashboard/components/SimulatedControlDeck.tsx`: Interactive simulation command deck featuring one-click anomaly injection, virtual servo actuation, traffic light controls, PIR motion pulsing, and autonomous presentation loop.
+- `dashboard/components/HardwareBreadboard.tsx`: Animated visual schematic of the Raspberry Pi 4, 40-pin GPIO ribbon, 830-point solderless breadboard, rotating SG90 servos (0°–180°), traffic light LEDs, and PIR motion dome.
+- `dashboard/lib/simulation-engine.ts`: Deterministic client/server simulation engine ensuring zero-latency execution even when offline or during cloud cold starts.
 - `dashboard/components/MetricsCards.tsx`: Top summary cards (Total Captures, Dead Wildlife, Fishing Violations, Hourly Baselines).
 - `dashboard/components/IncidentGallery.tsx`: High-resolution card grid with category tags, confidence badges, and full image view modals.
 - `dashboard/components/IncidentModal.tsx`: High-resolution photo inspector with bounding box overlays and detection telemetry.
 - `dashboard/components/AdminPanelModal.tsx`: Password-gated admin modal:
   - **Email Recipient Management**: Configure destination email address, toggle automated emails, send test alerts.
   - **Actuator Hardware Controls**: Reset Servos to 0° (Rest), Deploy Servos to 180° (Alert), LED test controls (Green, Yellow, Red).
-  - **Scenario Simulation**: Trigger test PIR events on demand.
+  - **Scenario Simulation**: Trigger test PIR events on demand (Mallard duck, Canada goose, illegal fishing, trout, baseline).
   - **Reset Data**: Reset demo incidents to baseline.
 
 ### API Routes
