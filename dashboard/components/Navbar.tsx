@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Camera, ShieldAlert, Layers, Lock, RefreshCw, Cpu, Zap, Laptop } from 'lucide-react';
+import { Camera, ShieldAlert, Layers, Lock, RefreshCw, Cpu, Zap } from 'lucide-react';
 import { DeviceTelemetry } from '@/types/incident';
 
 interface NavbarProps {
@@ -13,7 +13,6 @@ interface NavbarProps {
   onOpenAdmin: () => void;
   onRefresh: () => void;
   isRefreshing: boolean;
-  localSimulatorActive?: boolean;
 }
 
 export function Navbar({
@@ -25,7 +24,6 @@ export function Navbar({
   onOpenAdmin,
   onRefresh,
   isRefreshing,
-  localSimulatorActive = false,
 }: NavbarProps) {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md">
@@ -40,13 +38,7 @@ export function Navbar({
               <h1 className="text-base font-bold tracking-tight text-white sm:text-lg">
                 Tingley Beach Sentinel
               </h1>
-              {localSimulatorActive ? (
-                <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <Laptop className="h-3 w-3" />
-                  Mac Simulator (:8080)
-                </span>
-              ) : isSimulatedMode ? (
+              {isSimulatedMode ? (
                 <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-300">
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
                   ⚡ Simulated Mode Active
@@ -107,16 +99,14 @@ export function Navbar({
           <button
             onClick={onToggleSimulatedMode}
             className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition shadow-sm ${
-              localSimulatorActive
-                ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 ring-1 ring-emerald-400/40'
-                : isSimulatedMode
+              isSimulatedMode
                 ? 'border-amber-500/50 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 ring-1 ring-amber-400/40'
                 : 'border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white'
             }`}
-            title={localSimulatorActive ? 'Connected to local device simulator on port 8080' : isSimulatedMode ? 'Switch back to Live Hardware Edge stream' : 'Switch to Interactive Simulated Mode (Always Operational)'}
+            title={isSimulatedMode ? 'Switch back to Live Hardware Edge stream' : 'Switch to Interactive Simulated Mode (Always Operational)'}
           >
-            <Zap className={`h-3.5 w-3.5 ${localSimulatorActive ? 'text-emerald-400' : isSimulatedMode ? 'text-amber-400' : 'text-slate-400'}`} />
-            <span>{localSimulatorActive ? 'Mac Simulator' : isSimulatedMode ? 'Simulated Mode' : 'Simulate'}</span>
+            <Zap className={`h-3.5 w-3.5 ${isSimulatedMode ? 'text-amber-400' : 'text-slate-400'}`} />
+            <span>{isSimulatedMode ? 'Simulated Mode' : 'Simulate'}</span>
           </button>
 
           {/* Refresh Stream */}

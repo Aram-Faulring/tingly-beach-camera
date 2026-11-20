@@ -14,7 +14,6 @@ import {
   Sparkles,
   Check,
   Activity,
-  Laptop,
 } from 'lucide-react';
 import { DeviceTelemetry } from '@/types/incident';
 
@@ -29,8 +28,6 @@ interface SimulatedControlDeckProps {
   isAutoSimulate: boolean;
   setIsAutoSimulate: (val: boolean) => void;
   autoCountdown: number;
-  localSimulatorActive?: boolean;
-  onCheckLocalSimulator?: () => void;
 }
 
 export function SimulatedControlDeck({
@@ -44,8 +41,6 @@ export function SimulatedControlDeck({
   isAutoSimulate,
   setIsAutoSimulate,
   autoCountdown,
-  localSimulatorActive = false,
-  onCheckLocalSimulator,
 }: SimulatedControlDeckProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeButton, setActiveButton] = useState<string | null>(null);
@@ -96,14 +91,14 @@ export function SimulatedControlDeck({
             <div className="flex items-center gap-2 flex-wrap">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 text-[11px] font-bold text-amber-300">
                 <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-                SIMULATED MODE ACTIVE
+                ONLINE SIMULATOR ACTIVE
               </span>
               <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
-                100% Operational • Zero Latency
+                100% Operational • Browser & Cloud Native
               </span>
             </div>
             <p className="text-xs text-slate-300 mt-0.5">
-              Deterministic Edge AI simulator with virtual breadboard actuation & telemetry generation
+              Deterministic Sentinel AI simulator with virtual breadboard actuation & telemetry generation
             </p>
           </div>
         </div>
@@ -157,75 +152,6 @@ export function SimulatedControlDeck({
       {/* Collapsible Body */}
       {!isCollapsed && (
         <div className="mt-4 space-y-4">
-          {/* Section 0: Local Device Simulator Connection Status Banner */}
-          <div
-            className={`rounded-xl border p-3.5 transition ${
-              localSimulatorActive
-                ? 'border-emerald-500/40 bg-emerald-950/20 shadow-md shadow-emerald-500/10'
-                : 'border-slate-800 bg-slate-950/60'
-            }`}
-          >
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div
-                  className={`p-2 rounded-lg ${
-                    localSimulatorActive
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                      : 'bg-slate-800 text-slate-400'
-                  }`}
-                >
-                  <Laptop className="h-4 w-4" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-white">
-                      {localSimulatorActive
-                        ? 'Local Device Simulator: CONNECTED'
-                        : 'Local Device Simulator: STANDBY'}
-                    </span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                        localSimulatorActive
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                          : 'bg-slate-800 text-slate-400'
-                      }`}
-                    >
-                      {localSimulatorActive ? 'Port 8080 Active • macOS Daemon' : 'Port 8080 Standby'}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    {localSimulatorActive
-                      ? 'Live socket link active: commands from this dashboard actuate your local Mac Python daemon in 0ms.'
-                      : 'Run the standalone simulator on your Mac for live physical servo simulation & terminal telemetry.'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                {!localSimulatorActive ? (
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <code className="text-[11px] bg-slate-900 border border-slate-700 text-amber-300 px-2 py-1 rounded font-mono select-all">
-                      python3 device_simulator.py
-                    </code>
-                    {onCheckLocalSimulator && (
-                      <button
-                        onClick={onCheckLocalSimulator}
-                        className="rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1 text-xs font-medium transition"
-                      >
-                        Check Link
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <span className="text-xs font-mono text-emerald-400 flex items-center gap-1.5">
-                    <Check className="h-3.5 w-3.5 text-emerald-400" />
-                    <span>Real-time link synchronized</span>
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
           {/* Section 1: Five Anomaly Scenario Presets */}
           <div>
             <div className="flex items-center justify-between mb-2">
