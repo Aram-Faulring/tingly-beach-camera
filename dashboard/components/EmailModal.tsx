@@ -9,7 +9,7 @@ interface EmailModalProps {
 }
 
 export function EmailModal({ isOpen, onClose }: EmailModalProps) {
-  const [recipient, setRecipient] = useState('wildlife-response@cabq.gov');
+  const [recipient, setRecipient] = useState('cuddles_caterer_3c@icloud.com');
   const [customNote, setCustomNote] = useState('');
   const [alertWildlife, setAlertWildlife] = useState(true);
   const [alertFishing, setAlertFishing] = useState(true);

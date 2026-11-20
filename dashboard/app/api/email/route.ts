@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     const { incidentId, recipient, customMessage } = body;
 
     const incident = incidentId ? getIncidentById(incidentId) : null;
-    const targetEmail = recipient || process.env.ALERT_EMAIL_RECIPIENT || 'wildlife-response@cabq.gov';
+    const targetEmail = recipient || process.env.ALERT_EMAIL_RECIPIENT || 'cuddles_caterer_3c@icloud.com';
     const apiKey = process.env.RESEND_API_KEY;
 
     const subject = incident
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     if (apiKey) {
       const resend = new Resend(apiKey);
       const emailResult = await resend.emails.send({
-        from: process.env.EMAIL_FROM || 'Tingley Sentinel <alerts@tingleybeach.org>',
+        from: process.env.EMAIL_FROM || 'Tingley Sentinel <onboarding@resend.dev>',
         to: [targetEmail],
         subject: subject,
         html: htmlContent,
