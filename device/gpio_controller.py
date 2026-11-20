@@ -205,7 +205,7 @@ class HardwareGPIOController:
             try:
                 self.servo1_pwm.value = duty_fraction
                 self.servo2_pwm.value = duty_fraction
-                time.sleep(0.5)
+                time.sleep(0.8)
                 # Release torque to avoid servo humming / jitter
                 self.servo1_pwm.value = 0
                 self.servo2_pwm.value = 0

@@ -2,7 +2,8 @@
 Main Daemon Service for Tingley Beach Camera Sentinel
 Runs on Raspberry Pi 4 (Raspberry Pi OS 64-bit Headless)
 Coordinates PIR motion interrupts, hourly scheduled captures,
-CPU-based edge inference, GPIO servos & LEDs, and cloud dashboard sync.
+CPU-based edge inference, GPIO servos & LEDs, cloud dashboard sync,
+and bidirectional command polling for real-time actuator control.
 """
 
 import time
@@ -11,7 +12,10 @@ import os
 import base64
 import requests
 import logging
-from threading import Thread, Lock
+import threading
+from threading import Thread, Lock, Timer
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import json
 
 from config import (
     DEVICE_ID,
@@ -33,6 +37,51 @@ logging.basicConfig(
 )
 logger = logging.getLogger("TingleyDaemon")
 
+# Shared cloud command queue URL (instant sync between web admin and Pi)
+COMMAND_QUEUE_URL = "https://api.restful-api.dev/objects/ff808181a09d98f701a1f6f5bf537d79"
+
+
+class LocalCommandHandler(BaseHTTPRequestHandler):
+    """Lightweight local HTTP handler on port 8080 for LAN control / zero latency."""
+    daemon_instance = None
+
+    def log_message(self, format, *args):
+        pass  # Quiet logging
+
+    def do_GET(self):
+        if self.path == "/status":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            status = {
+                "device": DEVICE_ID,
+                "servos": self.daemon_instance.gpio.current_servo_angle,
+                "leds": self.daemon_instance.gpio.current_led_state,
+                "online": True
+            }
+            self.wfile.write(json.dumps(status).encode("utf-8"))
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def do_POST(self):
+        if self.path == "/reset":
+            self.daemon_instance.gpio.reset_to_idle()
+            self.send_response(200)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(b'{"success": true, "state": "idle_0_deg"}')
+        elif self.path == "/deploy":
+            self.daemon_instance.gpio.trigger_incident_actuation()
+            self.send_response(200)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(b'{"success": true, "state": "alert_180_deg"}')
+        else:
+            self.send_response(404)
+            self.end_headers()
+
 
 class TingleyBeachSentinelDaemon:
     def __init__(self):
@@ -47,6 +96,26 @@ class TingleyBeachSentinelDaemon:
         self.gpio = HardwareGPIOController()
         self.gpio.on_motion_callback = self.handle_motion_event
         self.running = True
+        self.last_command_timestamp = time.time() * 1000
+        self.reset_timer = None
+
+        # Start background cloud command poller thread
+        self.poller_thread = Thread(target=self._poll_cloud_commands, daemon=True)
+        self.poller_thread.start()
+
+        # Start local LAN server thread on port 8080
+        LocalCommandHandler.daemon_instance = self
+        self.local_server_thread = Thread(target=self._run_local_server, daemon=True)
+        self.local_server_thread.start()
+
+    def _run_local_server(self):
+        """Runs local HTTP server on port 8080."""
+        try:
+            server = HTTPServer(("0.0.0.0", 8080), LocalCommandHandler)
+            logger.info("Local HTTP control server active on port 8080 (http://tingley-cam.local:8080)")
+            server.serve_forever()
+        except Exception as e:
+            logger.warning(f"Local server error: {e}")
 
     def handle_motion_event(self):
         """Called immediately upon PIR motion sensor interrupt."""
@@ -56,6 +125,11 @@ class TingleyBeachSentinelDaemon:
         """Called periodically every hour by the scheduled timer loop."""
         logger.info("Hourly timer tick: Executing baseline environmental check.")
         self._process_event(trigger_type="hourly_timer")
+
+    def _auto_reset(self):
+        """Automatically returns servos to 0° and LEDs to Green after alert display window."""
+        logger.info("Auto-reset timer expired: Returning actuators to 0° (Green Idle)")
+        self.gpio.reset_to_idle()
 
     def _process_event(self, trigger_type="pir_motion"):
         """Thread-safe capture, inference, actuation, and cloud dispatch."""
@@ -80,6 +154,14 @@ class TingleyBeachSentinelDaemon:
                 logger.warning(f"🚨 INCIDENT FLAGGED: {result['type']} ({result.get('species')})")
                 # Rotate both micro servos 180° and illuminate Red Traffic Light LEDs
                 self.gpio.trigger_incident_actuation()
+
+                # Cancel any pending reset timer and schedule fresh 15s auto-reset
+                if self.reset_timer and self.reset_timer.is_alive():
+                    self.reset_timer.cancel()
+                self.reset_timer = Timer(15.0, self._auto_reset)
+                self.reset_timer.daemon = True
+                self.reset_timer.start()
+                logger.info("Alert flag deployed. Scheduled 15s auto-reset.")
             else:
                 logger.info("No incident detected. Baseline status nominal.")
                 # Return LEDs to Green and servos to 0°
@@ -138,6 +220,44 @@ class TingleyBeachSentinelDaemon:
         except Exception as e:
             logger.warning(f"Unable to reach cloud dashboard ({e}). Event saved locally on SD card.")
 
+    def _poll_cloud_commands(self):
+        """Continuously polls the cloud queue for actuator commands dispatched from Admin panel."""
+        logger.info("Cloud command poller active. Listening for dashboard actuator commands...")
+        while self.running:
+            try:
+                resp = requests.get(COMMAND_QUEUE_URL, timeout=4)
+                if resp.status_code == 200:
+                    payload = resp.json()
+                    data = payload.get("data", {})
+                    cmd_ts = data.get("timestamp", 0)
+
+                    if cmd_ts > self.last_command_timestamp:
+                        self.last_command_timestamp = cmd_ts
+                        command = data.get("command")
+                        logger.warning(f"⚡ RECEIVED CLOUD ACTUATOR COMMAND: {command}")
+
+                        if command == "reset_servos":
+                            if self.reset_timer and self.reset_timer.is_alive():
+                                self.reset_timer.cancel()
+                            self.gpio.reset_to_idle()
+                        elif command == "deploy_servos":
+                            self.gpio.trigger_incident_actuation()
+                        elif command == "set_leds":
+                            led_color = data.get("ledColor", "green")
+                            self.gpio.set_leds(
+                                green=(led_color == "green"),
+                                yellow=(led_color == "yellow"),
+                                red=(led_color == "red")
+                            )
+                        elif command == "capture_now":
+                            Thread(target=self._process_event, args=("manual_admin",)).start()
+
+            except Exception as e:
+                # Connection glitch or timeout; continue loop silently
+                pass
+
+            time.sleep(1.2)
+
     def run(self):
         """Main service loop with hourly scheduled timer heartbeat."""
         logger.info("Tingley Sentinel Daemon is LIVE. Listening for PIR interrupts and hourly ticks...")
@@ -155,6 +275,7 @@ class TingleyBeachSentinelDaemon:
         except KeyboardInterrupt:
             logger.info("Stopping daemon service...")
         finally:
+            self.running = False
             self.gpio.cleanup()
             logger.info("Shutdown complete.")
 

@@ -74,6 +74,25 @@ export async function POST(request: NextRequest) {
       const { command, angle, ledColor } = body;
       const cmd = queueDeviceCommand(command, { angle, ledColor });
 
+      // Dispatch to shared cloud queue so the physical Raspberry Pi daemon executes it
+      try {
+        await fetch('https://api.restful-api.dev/objects/ff808181a09d98f701a1f6f5bf537d79', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'tingley_command_queue',
+            data: {
+              command,
+              angle: angle ?? (command === 'reset_servos' ? 0 : 180),
+              ledColor: ledColor ?? (command === 'reset_servos' ? 'green' : 'red'),
+              timestamp: Date.now(),
+            },
+          }),
+        });
+      } catch (err) {
+        console.error('Failed to sync actuator command to cloud queue', err);
+      }
+
       if (command === 'reset_servos') {
         updateTelemetry({
           servoAngles: [0, 0],
@@ -96,7 +115,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: `Actuator command '${command}' dispatched`,
+        message: `Actuator command '${command}' dispatched to physical Pi`,
         command: cmd,
         telemetry: getTelemetry(),
       });
