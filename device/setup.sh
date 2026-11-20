@@ -77,7 +77,7 @@ echo -e "\n${BLUE}[6/6] Verifying Hardware Interfaces...${NC}"
 # Check Camera
 if command -v rpicam-hello &> /dev/null; then
   echo -n "Checking MIPI-CSI Camera Module... "
-  if rpicam-hello --list-cameras 2>&1 | grep -q "available"; then
+  if rpicam-hello --list-cameras 2>&1 | grep -iq "available"; then
     echo -e "${GREEN}DETECTED${NC}"
   else
     echo -e "${YELLOW}Camera ribbon not detected. Check physical seating in CSI port.${NC}"
