@@ -45,14 +45,18 @@ export function IncidentGallery({
     return true;
   });
 
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
+    setNow(Date.now());
     const interval = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(interval);
   }, []);
 
   const formatTimeAgo = (isoString: string) => {
+    if (now === null) {
+      return new Date(isoString).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
     const diffMs = now - new Date(isoString).getTime();
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMins / 60);
