@@ -100,15 +100,17 @@ export default function DashboardPage() {
     } catch {
       // Ignore
     }
-    setIsSimulatedMode(isSim);
+    queueMicrotask(() => {
+      setIsSimulatedMode(isSim);
 
-    if (isSim) {
-      setTelemetry((curr) => curr || createSimulatedTelemetry());
-    } else {
-      fetchTelemetry();
-    }
+      if (isSim) {
+        setTelemetry((curr) => curr || createSimulatedTelemetry());
+      } else {
+        fetchTelemetry();
+      }
 
-    fetchIncidents();
+      fetchIncidents();
+    });
   }, [fetchIncidents, fetchTelemetry]);
 
   // Periodic background refresh for Live Pi mode ONLY (NEVER interferes with simulated mode)
@@ -391,7 +393,7 @@ export default function DashboardPage() {
   // Auto-Simulate background countdown & scenario runner
   useEffect(() => {
     if (!isAutoSimulate) {
-      setAutoCountdown(20);
+      queueMicrotask(() => setAutoCountdown(20));
       return;
     }
 

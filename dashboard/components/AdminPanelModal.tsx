@@ -54,18 +54,7 @@ export function AdminPanelModal({
   // Actuator State
   const [actuatorLoading, setActuatorLoading] = useState<string | null>(null);
 
-  // Check saved session auth
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem('tingley_admin_token');
-      if (saved === 'tingley2026') {
-        setIsAuthenticated(true);
-        fetchAdminConfig('tingley2026');
-      }
-    }
-  }, []);
-
-  const fetchAdminConfig = async (pwd: string) => {
+  const fetchAdminConfig = async (pwd: string): Promise<boolean> => {
     try {
       const res = await fetch('/api/admin', {
         headers: { 'x-admin-password': pwd },
@@ -76,11 +65,27 @@ export function AdminPanelModal({
           setEmailRecipient(data.config.emailRecipient || 'cuddles_caterer_3c@icloud.com');
           setEmailAlertsEnabled(data.config.emailAlertsEnabled ?? true);
         }
+        return true;
       }
     } catch (err) {
       console.error('Failed to load admin config', err);
     }
+    return false;
   };
+
+  // Check saved session auth
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('tingley_admin_token');
+      if (saved) {
+        queueMicrotask(() => {
+          fetchAdminConfig(saved).then((ok) => {
+            if (ok) setIsAuthenticated(true);
+          });
+        });
+      }
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

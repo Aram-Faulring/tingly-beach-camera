@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Incident } from '@/types/incident';
 import {
   Skull,
@@ -45,8 +45,15 @@ export function IncidentGallery({
     return true;
   });
 
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
   const formatTimeAgo = (isoString: string) => {
-    const diffMs = Date.now() - new Date(isoString).getTime();
+    const diffMs = now - new Date(isoString).getTime();
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMins / 60);
 
