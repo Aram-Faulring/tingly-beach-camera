@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPendingDeviceCommands, clearDeviceCommands } from '@/lib/store';
+import { verifyDeviceKey } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
-  const apiKey = request.headers.get('x-api-key');
-  const expectedKey = process.env.DEVICE_API_KEY || 'tingley-edge-secret-key-2026';
-
-  if (apiKey && apiKey !== expectedKey) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authError = verifyDeviceKey(request);
+  if (authError) {
+    return authError;
   }
 
   const commands = getPendingDeviceCommands();

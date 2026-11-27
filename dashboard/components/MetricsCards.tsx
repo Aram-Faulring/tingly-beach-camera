@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Incident } from '@/types/incident';
-import { Skull, AlertTriangle, Clock, Layers, ShieldCheck } from 'lucide-react';
+import { Skull, AlertTriangle, Clock, Layers } from 'lucide-react';
 
 interface MetricsCardsProps {
   incidents: Incident[];

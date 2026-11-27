@@ -8,11 +8,7 @@ import {
   AlertTriangle,
   Clock,
   MapPin,
-  CheckCircle2,
-  Calendar,
-  Layers,
   Sparkles,
-  Download,
 } from 'lucide-react';
 
 interface IncidentModalProps {

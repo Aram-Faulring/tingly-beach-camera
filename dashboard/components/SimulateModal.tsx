@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Play, Skull, AlertTriangle, Clock, RotateCw, CheckCircle2 } from 'lucide-react';
+import { X, Play, Skull, AlertTriangle, Clock, CheckCircle2 } from 'lucide-react';
 
 interface SimulateModalProps {
   isOpen: boolean;

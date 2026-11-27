@@ -6,6 +6,7 @@ CPU-based edge inference, GPIO servos & LEDs, cloud dashboard sync,
 and bidirectional command polling for real-time actuator control.
 """
 
+import hmac
 import time
 import sys
 import os
@@ -48,11 +49,25 @@ class LocalCommandHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass  # Quiet logging
 
+    def _is_authorized(self):
+        if not API_KEY:
+            return False
+        provided = self.headers.get("x-api-key", "")
+        return bool(provided) and hmac.compare_digest(provided, API_KEY)
+
+    def _reject_unauthorized(self):
+        self.send_response(401)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(b'{"error": "Unauthorized"}')
+
     def do_GET(self):
+        if not self._is_authorized():
+            self._reject_unauthorized()
+            return
         if self.path == "/status":
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             status = {
                 "device": DEVICE_ID,
@@ -66,16 +81,19 @@ class LocalCommandHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
+        if not self._is_authorized():
+            self._reject_unauthorized()
+            return
         if self.path == "/reset":
             self.daemon_instance.gpio.reset_to_idle()
             self.send_response(200)
-            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(b'{"success": true, "state": "idle_0_deg"}')
         elif self.path == "/deploy":
             self.daemon_instance.gpio.trigger_incident_actuation()
             self.send_response(200)
-            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(b'{"success": true, "state": "alert_180_deg"}')
         else:
@@ -253,8 +271,7 @@ class TingleyBeachSentinelDaemon:
                             Thread(target=self._process_event, args=("manual_admin",)).start()
 
             except Exception as e:
-                # Connection glitch or timeout; continue loop silently
-                pass
+                logger.debug(f"Cloud command poll error: {e}")
 
             time.sleep(1.2)
 

@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Incident } from '@/types/incident';
-import { Camera, MapPin, Eye, Radio, AlertCircle } from 'lucide-react';
+import { Eye, Radio } from 'lucide-react';
 
 interface TingleyMapProps {
   incidents: Incident[];
@@ -10,7 +10,6 @@ interface TingleyMapProps {
 }
 
 export function TingleyMap({ incidents, onSelectIncident }: TingleyMapProps) {
-  const [selectedZone, setSelectedZone] = useState<string | null>(null);
 
   // Map zone locations in percentages for SVG rendering
   const zoneCoords: Record<string, { x: number; y: number; label: string }> = {

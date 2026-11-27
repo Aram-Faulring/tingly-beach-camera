@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Mail, Send, CheckCircle2, ShieldAlert, Sparkles, Key } from 'lucide-react';
+import { X, Mail, Send, CheckCircle2, Key } from 'lucide-react';
 
 interface EmailModalProps {
   isOpen: boolean;
@@ -9,7 +9,7 @@ interface EmailModalProps {
 }
 
 export function EmailModal({ isOpen, onClose }: EmailModalProps) {
-  const [recipient, setRecipient] = useState('cuddles_caterer_3c@icloud.com');
+  const [recipient, setRecipient] = useState('');
   const [customNote, setCustomNote] = useState('');
   const [alertWildlife, setAlertWildlife] = useState(true);
   const [alertFishing, setAlertFishing] = useState(true);
@@ -22,9 +22,13 @@ export function EmailModal({ isOpen, onClose }: EmailModalProps) {
     setLoading(true);
     setStatusResult(null);
     try {
+      const adminToken = typeof window !== 'undefined' ? sessionStorage.getItem('tingley_admin_token') || '' : '';
       const res = await fetch('/api/email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(adminToken ? { 'x-admin-password': adminToken } : {}),
+        },
         body: JSON.stringify({
           recipient,
           customMessage: customNote || 'Manual test alert dispatched from Tingley Beach Sentinel dashboard.',

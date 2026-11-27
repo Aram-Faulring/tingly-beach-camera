@@ -9,7 +9,7 @@ User=pi
 WorkingDirectory=/opt/tingley
 Environment=PYTHONUNBUFFERED=1
 Environment=DASHBOARD_API_URL=https://tingly-beach-camera.vercel.app/api/alerts
-Environment=DEVICE_API_KEY=tingley-edge-secret-key-2026
+Environment=DEVICE_API_KEY=replace-with-device-api-key
 ExecStart=/usr/bin/python3 /opt/tingley/service.py
 Restart=always
 RestartSec=5

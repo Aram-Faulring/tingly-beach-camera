@@ -14,8 +14,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   Play,
-  Zap,
-  Sliders,
   Check,
 } from 'lucide-react';
 import { DeviceTelemetry } from '@/types/incident';
@@ -37,7 +35,6 @@ export function AdminPanelModal({
   onRefreshAll,
   showToast,
   onSimulateIncident,
-  isSimulatedMode,
 }: AdminPanelModalProps) {
   const [password, setPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -62,7 +59,7 @@ export function AdminPanelModal({
       if (res.ok) {
         const data = await res.json();
         if (data.config) {
-          setEmailRecipient(data.config.emailRecipient || 'cuddles_caterer_3c@icloud.com');
+          setEmailRecipient(data.config.emailRecipient || '');
           setEmailAlertsEnabled(data.config.emailAlertsEnabled ?? true);
         }
         return true;
@@ -129,7 +126,7 @@ export function AdminPanelModal({
     showToast('Admin session locked');
   };
 
-  const currentPwd = password || (typeof window !== 'undefined' ? sessionStorage.getItem('tingley_admin_token') : null) || 'tingley2026';
+  const currentPwd = password || (typeof window !== 'undefined' ? sessionStorage.getItem('tingley_admin_token') : null) || '';
 
   const handleSaveEmailConfig = async () => {
     setIsSavingEmail(true);
@@ -167,7 +164,10 @@ export function AdminPanelModal({
     try {
       const res = await fetch('/api/email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-password': currentPwd,
+        },
         body: JSON.stringify({
           recipient: emailRecipient,
           customMessage: 'Admin Test Verification: Live email dispatch confirmed from Tingley Beach Sentinel.',
@@ -226,7 +226,10 @@ export function AdminPanelModal({
       } else {
         const res = await fetch('/api/simulate', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-password': currentPwd,
+          },
           body: JSON.stringify({ scenario }),
         });
 
@@ -364,7 +367,7 @@ export function AdminPanelModal({
                 </button>
 
                 <p className="text-[11px] text-center text-slate-500 pt-1">
-                  Default password: <code className="bg-slate-900 px-1 py-0.5 rounded text-amber-300/80">tingley2026</code>
+                  Configured via server <code className="bg-slate-900 px-1 py-0.5 rounded text-amber-300/80">ADMIN_PASSWORD</code> environment variable
                 </p>
               </div>
             </form>

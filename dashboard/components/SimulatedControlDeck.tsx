@@ -12,7 +12,6 @@ import {
   ChevronUp,
   ChevronDown,
   Sparkles,
-  Check,
   Activity,
 } from 'lucide-react';
 import { DeviceTelemetry } from '@/types/incident';

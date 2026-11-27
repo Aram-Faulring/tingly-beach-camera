@@ -162,7 +162,6 @@ export function createSimulatedIncident(scenarioKey: string): Incident {
     servoAngle: scenario.servoAngle,
     ledState: { ...scenario.ledState },
     emailAlertSent: !isRoutine,
-    emailRecipient: 'cuddles_caterer_3c@icloud.com',
     notes: scenario.notes,
   };
 }

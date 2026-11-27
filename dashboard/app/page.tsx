@@ -9,7 +9,6 @@ import { SimulatedControlDeck } from '@/components/SimulatedControlDeck';
 import { IncidentModal } from '@/components/IncidentModal';
 import { AdminPanelModal } from '@/components/AdminPanelModal';
 import {
-  createSimulatedIncident,
   createSimulatedTelemetry,
   simulateTelemetryTick,
   SIMULATION_SCENARIOS,
@@ -17,6 +16,23 @@ import {
 import { Zap, Sparkles } from 'lucide-react';
 
 const AUTO_SCENARIOS = ['dead_duck', 'illegal_fishing', 'dead_fish', 'dead_goose', 'routine_day'];
+
+function getAdminToken(): string | null {
+  return typeof window !== 'undefined' ? sessionStorage.getItem('tingley_admin_token') : null;
+}
+
+async function postAdminTelemetry(payload: Record<string, unknown>): Promise<void> {
+  const adminToken = getAdminToken();
+  if (!adminToken) return;
+  await fetch('/api/telemetry', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-admin-password': adminToken,
+    },
+    body: JSON.stringify(payload),
+  });
+}
 
 export default function DashboardPage() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -158,7 +174,6 @@ export default function DashboardPage() {
 
       // Construct identical JSON payload that Raspberry Pi device/service.py sends
       const payload = {
-        apiKey: 'tingley-edge-secret-key-2026',
         deviceId: 'tingley-pi4-01',
         timestamp: new Date().toISOString(),
         trigger,
@@ -185,7 +200,6 @@ export default function DashboardPage() {
         status: isRoutine ? 'resolved' : 'unreviewed',
         severity: scenario.severity,
         emailAlertSent: scenario.servosTriggered,
-        emailRecipient: 'cuddles_caterer_3c@icloud.com',
       };
       setIncidents((prev) => [localIncident, ...prev.filter((i) => i.id !== localIncident.id)]);
 
@@ -204,25 +218,29 @@ export default function DashboardPage() {
 
       showToast(`🚨 Ingested: ${scenario.title} (${scenario.severity.toUpperCase()})`);
 
-      // 2. ACTUAL HTTP POST to /api/alerts (matching physical hardware network transmission)
-      try {
-        const res = await fetch('/api/alerts', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': 'tingley-edge-secret-key-2026',
-          },
-          body: JSON.stringify(payload),
-        });
+      const adminToken = getAdminToken();
 
-        if (res.ok) {
-          const data = await res.json();
-          if (data.incident) {
-            setIncidents((prev) => [data.incident, ...prev.filter((i) => i.id !== localIncident.id && i.id !== data.incident.id)]);
+      // 2. Sync to /api/alerts only when authenticated as admin (otherwise stays local in sandbox)
+      if (adminToken) {
+        try {
+          const res = await fetch('/api/alerts', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-admin-password': adminToken,
+            },
+            body: JSON.stringify(payload),
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.incident) {
+              setIncidents((prev) => [data.incident, ...prev.filter((i) => i.id !== localIncident.id && i.id !== data.incident.id)]);
+            }
           }
+        } catch (err) {
+          console.warn('Network alert post deferred', err);
         }
-      } catch (err) {
-        console.warn('Network alert post deferred', err);
       }
 
       // 3. 15-second hardware auto-reset timer (EXACT BEHAVIOR AS RASPBERRY PI 4 DAEMON)
@@ -239,15 +257,11 @@ export default function DashboardPage() {
             };
           });
 
-          // Sync auto-reset to /api/telemetry
-          fetch('/api/telemetry', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              servoAngles: [0, 0],
-              ledState: { green: true, yellow: false, red: false },
-              pirSensorStatus: 'idle',
-            }),
+          // Sync auto-reset to /api/telemetry when authenticated as admin
+          postAdminTelemetry({
+            servoAngles: [0, 0],
+            ledState: { green: true, yellow: false, red: false },
+            pirSensorStatus: 'idle',
           }).catch(() => {});
 
           showToast('⏱️ Dual servos auto-reset to 0° (Green Ready) after 15s display');
@@ -274,18 +288,14 @@ export default function DashboardPage() {
 
       showToast(`Dual SG90 Servos rotated to ${angle}° (${angle >= 90 ? 'Alert Flag' : 'Rest Position'})`);
 
-      // Send to /api/telemetry
+      // Sync to /api/telemetry when authenticated as admin
       try {
-        await fetch('/api/telemetry', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            servoAngles: [angle, angle],
-            ledState:
-              angle >= 90
-                ? { green: false, yellow: false, red: true }
-                : { green: true, yellow: false, red: false },
-          }),
+        await postAdminTelemetry({
+          servoAngles: [angle, angle],
+          ledState:
+            angle >= 90
+              ? { green: false, yellow: false, red: true }
+              : { green: true, yellow: false, red: false },
         });
       } catch (err) {
         console.warn('Backend actuator sync deferred', err);
@@ -311,18 +321,14 @@ export default function DashboardPage() {
 
       showToast(`Traffic Light Modules set to ${color.toUpperCase()}`);
 
-      // Send to /api/telemetry
+      // Sync to /api/telemetry when authenticated as admin
       try {
-        await fetch('/api/telemetry', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ledState: {
-              green: color === 'green',
-              yellow: color === 'yellow',
-              red: color === 'red',
-            },
-          }),
+        await postAdminTelemetry({
+          ledState: {
+            green: color === 'green',
+            yellow: color === 'yellow',
+            red: color === 'red',
+          },
         });
       } catch (err) {
         console.warn('Backend LED sync deferred', err);
@@ -343,11 +349,7 @@ export default function DashboardPage() {
 
     showToast('📡 PIR Motion Sensor Interrupt Fired (GPIO 17 High)');
 
-    fetch('/api/telemetry', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pirSensorStatus: 'triggered' }),
-    }).catch(() => {});
+    postAdminTelemetry({ pirSensorStatus: 'triggered' }).catch(() => {});
 
     setTimeout(() => {
       setTelemetry((prev) => {
@@ -357,11 +359,7 @@ export default function DashboardPage() {
           pirSensorStatus: 'idle',
         };
       });
-      fetch('/api/telemetry', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pirSensorStatus: 'idle' }),
-      }).catch(() => {});
+      postAdminTelemetry({ pirSensorStatus: 'idle' }).catch(() => {});
     }, 3200);
   }, [showToast]);
 
@@ -371,19 +369,30 @@ export default function DashboardPage() {
     setTelemetry(createSimulatedTelemetry());
     showToast('Resetting sentinel data back to clean baseline...');
 
-    try {
-      const res = await fetch('/api/simulate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scenario: 'reset' }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.incidents)) {
-          setIncidents(data.incidents);
+    const adminToken = getAdminToken();
+    if (adminToken) {
+      try {
+        const res = await fetch('/api/simulate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-password': adminToken,
+          },
+          body: JSON.stringify({ scenario: 'reset' }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.incidents)) {
+            setIncidents(data.incidents);
+          }
+        } else {
+          showToast('Admin authentication required to reset backend demo incidents');
+          return;
         }
+      } catch {
+        await fetchIncidents();
       }
-    } catch {
+    } else {
       await fetchIncidents();
     }
 
