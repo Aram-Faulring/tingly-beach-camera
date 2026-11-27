@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addIncident, updateTelemetry, resetIncidents, getTelemetry } from '@/lib/store';
 import { createSimulatedIncident, SIMULATION_SCENARIOS, createSimulatedTelemetry } from '@/lib/simulation-engine';
+import { verifyAdminPassword } from '@/lib/auth';
 
 export async function GET() {
   return NextResponse.json({
@@ -13,6 +14,10 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const authError = verifyAdminPassword(request, body);
+    if (authError) {
+      return authError;
+    }
     const scenario = body.scenario || 'dead_duck';
 
     // 1. Actuator simulation command

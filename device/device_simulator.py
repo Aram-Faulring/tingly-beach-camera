@@ -26,7 +26,7 @@ import requests
 VERCEL_DASHBOARD_URL = os.getenv("DASHBOARD_URL", "https://tingly-beach-camera-nj21.vercel.app")
 LOCAL_DASHBOARD_URL = "http://localhost:3000"
 COMMAND_QUEUE_URL = "https://api.restful-api.dev/objects/ff808181a09d98f701a1f6f5bf537d79"
-DEVICE_API_KEY = "tingley-edge-secret-key-2026"
+DEVICE_API_KEY = os.getenv("DEVICE_API_KEY", "")
 DEVICE_ID = "tingley-mac-simulator"
 DEVICE_NAME = "Tingley Beach Sentinel Pi 4 (Mac Simulator)"
 LOCATION_NAME = "Tingley Beach - Albuquerque, NM"

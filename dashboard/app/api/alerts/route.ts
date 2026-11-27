@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getIncidents, addIncident, getAdminConfig, updateTelemetry } from '@/lib/store';
+import { verifyDeviceOrAdmin } from '@/lib/auth';
 import { Incident, IncidentType, IncidentStatus } from '@/types/incident';
 
 export async function GET(request: NextRequest) {
@@ -26,12 +27,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Verify API key if provided in headers
-    const apiKey = request.headers.get('x-api-key') || body.apiKey;
-    const expectedKey = process.env.DEVICE_API_KEY || 'tingley-edge-secret-key-2026';
-    
-    if (apiKey && apiKey !== expectedKey) {
-      return NextResponse.json({ error: 'Unauthorized device key' }, { status: 401 });
+    const authError = verifyDeviceOrAdmin(request, body);
+    if (authError) {
+      return authError;
     }
 
     const adminConfig = getAdminConfig();

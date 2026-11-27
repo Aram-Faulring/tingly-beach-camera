@@ -7,10 +7,8 @@ import {
   AlertTriangle,
   Clock,
   Search,
-  Filter,
   Eye,
   MapPin,
-  CheckCircle2,
 } from 'lucide-react';
 
 interface IncidentGalleryProps {
@@ -48,9 +46,13 @@ export function IncidentGallery({
   const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
-    setNow(Date.now());
-    const interval = setInterval(() => setNow(Date.now()), 60_000);
-    return () => clearInterval(interval);
+    const syncNow = () => setNow(Date.now());
+    const initTimer = setTimeout(syncNow, 0);
+    const interval = setInterval(syncNow, 60_000);
+    return () => {
+      clearTimeout(initTimer);
+      clearInterval(interval);
+    };
   }, []);
 
   const formatTimeAgo = (isoString: string) => {

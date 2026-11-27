@@ -7,7 +7,7 @@ ZONE_NAME = "Children's & Model Boat Pond"
 
 # Cloud Dashboard API
 DASHBOARD_API_URL = os.getenv("DASHBOARD_API_URL", "https://tingly-beach-camera.vercel.app/api/alerts")
-API_KEY = os.getenv("DEVICE_API_KEY", "tingley-edge-secret-key-2026")
+API_KEY = os.getenv("DEVICE_API_KEY", "")
 HEARTBEAT_INTERVAL_SECONDS = 3600  # 1 hour baseline capture
 
 # Hardware Pin Assignments (BCM numbering)

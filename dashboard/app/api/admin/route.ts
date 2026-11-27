@@ -8,10 +8,14 @@ import {
   updateTelemetry,
   queueDeviceCommand,
 } from '@/lib/store';
+import { verifyAdminPassword, isValidAdminPassword } from '@/lib/auth';
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'tingley2026';
+export async function GET(request: NextRequest) {
+  const authError = verifyAdminPassword(request);
+  if (authError) {
+    return authError;
+  }
 
-export async function GET() {
   const config = getAdminConfig();
   const telemetry = getTelemetry();
   return NextResponse.json({
@@ -28,7 +32,14 @@ export async function POST(request: NextRequest) {
 
     // Login action
     if (action === 'auth') {
-      if (password === ADMIN_PASSWORD) {
+      if (!process.env.ADMIN_PASSWORD) {
+        return NextResponse.json({
+          success: false,
+          authenticated: false,
+          error: 'Server misconfiguration: ADMIN_PASSWORD is not configured',
+        }, { status: 500 });
+      }
+      if (isValidAdminPassword(password)) {
         return NextResponse.json({
           success: true,
           authenticated: true,
@@ -45,12 +56,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Require authentication check for other actions
-    const authHeader = request.headers.get('x-admin-password') || body.adminPassword;
-    if (authHeader !== ADMIN_PASSWORD) {
-      return NextResponse.json({
-        success: false,
-        error: 'Unauthorized. Admin credentials required.',
-      }, { status: 403 });
+    const authError = verifyAdminPassword(request, body);
+    if (authError) {
+      return authError;
     }
 
     // 1. Update Admin Configuration (e.g. Email settings)

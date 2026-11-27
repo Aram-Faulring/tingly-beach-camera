@@ -18,18 +18,14 @@ export interface DeviceCommand {
 
 // Global singleton in development/production serverless instances
 declare global {
-  // eslint-disable-next-line no-var
   var __tingley_incidents: Incident[] | undefined;
-  // eslint-disable-next-line no-var
   var __tingley_telemetry: DeviceTelemetry | undefined;
-  // eslint-disable-next-line no-var
   var __tingley_admin_config: AdminConfig | undefined;
-  // eslint-disable-next-line no-var
   var __tingley_device_commands: DeviceCommand[] | undefined;
 }
 
 const INITIAL_ADMIN_CONFIG: AdminConfig = {
-  emailRecipient: process.env.ALERT_EMAIL_RECIPIENT || 'cuddles_caterer_3c@icloud.com',
+  emailRecipient: process.env.ALERT_EMAIL_RECIPIENT || '',
   emailAlertsEnabled: true,
   minConfidenceThreshold: 0.65,
   autoActuateServos: true,
@@ -62,7 +58,7 @@ const INITIAL_INCIDENTS: Incident[] = [
     servoAngle: 180,
     ledState: { green: false, yellow: false, red: true },
     emailAlertSent: true,
-    emailRecipient: 'cuddles_caterer_3c@icloud.com',
+    emailRecipient: process.env.ALERT_EMAIL_RECIPIENT || 'alerts@example.com',
     notes: 'Micro servos actuated 180° to deploy physical marker flag. High priority wildlife carcass retrieval needed.',
   },
   {
@@ -94,7 +90,7 @@ const INITIAL_INCIDENTS: Incident[] = [
     servoAngle: 180,
     ledState: { green: false, yellow: true, red: true },
     emailAlertSent: true,
-    emailRecipient: 'cuddles_caterer_3c@icloud.com',
+    emailRecipient: process.env.ALERT_EMAIL_RECIPIENT || 'alerts@example.com',
     notes: 'Reported to Open Space Rangers. Zone is strictly reserved for youth under 12 and model boats during park daylight hours.',
   },
   {
@@ -122,7 +118,7 @@ const INITIAL_INCIDENTS: Incident[] = [
     servoAngle: 180,
     ledState: { green: false, yellow: false, red: true },
     emailAlertSent: true,
-    emailRecipient: 'cuddles_caterer_3c@icloud.com',
+    emailRecipient: process.env.ALERT_EMAIL_RECIPIENT || 'alerts@example.com',
     notes: 'Specimen removed by groundskeeper at 09:30. Water quality logged normal.',
   },
   {
